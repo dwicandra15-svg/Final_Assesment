@@ -1,1150 +1,1131 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8" />
-    <title>Aplikasi Ujian Online</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>Aplikasi Ujian Online - Final Assessment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Firebase (APP + AUTH + FIRESTORE, versi compat untuk dipakai di <script> biasa) -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f3f4f6;
-            color: #111827;
-        }
-        header {
-            background: #1f2937;
-            color: white;
-            padding: 14px 16px;
-            text-align: center;
-        }
-        main {
-            max-width: 900px;
-            margin: 16px auto;
-            padding: 16px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3, h4 {
-            margin-top: 0;
-        }
-        .nav {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-        .nav button {
-            flex: 1;
-        }
-        input[type=text],
-        input[type=password],
-        input[type=number],
-        textarea,
-        select {
-            width: 100%;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 14px;
-        }
-        textarea {
-            min-height: 60px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-secondary { background: #6b7280; color: white; }
-        .btn-danger { background: #dc2626; color: white; }
-        .btn-sm { padding: 4px 10px; font-size: 12px; }
-        .section { display: none; }
-        .section.active { display: block; }
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+    header .subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    main {
+      max-width: 1000px;
+      margin: 16px auto;
+      padding: 16px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .nav button {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .nav button.button_active {
+      background: #2563eb;
+      color: #fff;
+    }
 
-        .question-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-        .choices { margin-top: 8px; }
-        .choice { margin-bottom: 6px; }
-        .choice input {
-            margin-right: 6px;
-        }
-        .choice label {
-            display: inline-block;
-            margin: 0;
-        }
+    h2, h3, h4 { margin-top: 0; }
+    .section { display: none; }
+    .section.active { display: block; }
 
-        .info-box {
-            background: #eff6ff;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            margin-top: 10px;
-        }
-        th, td {
-            border: 1px solid #d1d5db;
-            padding: 6px 8px;
-            text-align: left;
-        }
-        th { background: #f9fafb; }
-        .kop {
-            text-align: center;
-            margin-bottom: 12px;
-        }
-        .kop-title {
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .kop-subtitle {
-            font-size: 14px;
-        }
-        .flex {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .flex-2 { flex: 2; }
-        .flex-1 { flex: 1; }
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      background: #f9fafb;
+    }
 
-        .mt-2 { margin-top: 8px; }
-        .mt-3 { margin-top: 12px; }
-        .mt-4 { margin-top: 16px; }
-        .hidden { display: none; }
+    label {
+      display: block;
+      margin-top: 6px;
+      margin-bottom: 2px;
+      font-size: 13px;
+    }
+    input[type=text],
+    input[type=password],
+    input[type=number],
+    textarea,
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 13px;
+    }
+    textarea { resize: vertical; min-height: 60px; }
 
-        .alert {
-            background: #fef3c7;
-            border: 1px solid #fbbf24;
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 13px;
-            margin-top: 8px;
-        }
+    .btn {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-secondary { background: #6b7280; color: #fff; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
 
-        /* Footer watermark elegan */
-        .global-watermark {
-            max-width: 900px;
-            margin: 0 auto 20px;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 0.6px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 10px;
-            font-family: "Segoe UI", Arial, sans-serif;
-        }
+    .info-box {
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      font-size: 13px;
+    }
 
-        /* Cetak hanya daftar nilai untuk PDF */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #daftarNilaiArea, #daftarNilaiArea * {
-                visibility: visible;
-            }
-            #daftarNilaiArea {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                box-shadow: none;
-            }
-            .btn {
-                display: none !important;
-            }
-            .global-watermark {
-                display: none !important;
-            }
-        }
-    </style>
+    .flex {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .flex-1 { flex: 1; min-width: 260px; }
+    .flex-2 { flex: 2; min-width: 320px; }
+
+    .question-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .choices .choice {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    th {
+      background: #111827;
+      color: #fff;
+    }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    .kop {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .kop-title { font-weight: bold; font-size: 16px; }
+    .kop-subtitle { font-size: 13px; }
+
+    .hidden { display: none; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-4 { margin-top: 16px; }
+
+    .alert {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .watermark-global {
+      max-width: 1000px;
+      margin: 6px auto 16px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 6px;
+      font-style: italic;
+    }
+
+    /* CETAK PDF: hanya kop + tabel nilai yang terlihat */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #daftarNilaiArea, #daftarNilaiArea * {
+        visibility: visible;
+      }
+      #daftarNilaiArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border: none;
+      }
+      .watermark-global {
+        display: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
 <header>
-    <h1>Aplikasi Ujian Online</h1>
-    <div id="headerSubtitle" style="font-size:13px;opacity:0.9;">
-        Contoh sederhana berbasis HTML + JavaScript (tanpa server)
-    </div>
+  <h1>Aplikasi Ujian Online</h1>
+  <div id="headerSubtitle" class="subtitle">
+    Final Assessment Ujian Online
+  </div>
 </header>
 
 <main>
-    <div class="nav">
-        <button id="btnSiswa" class="active">Mode Siswa</button>
-        <button id="btnGuru">Mode Guru (Admin)</button>
+  <div class="nav">
+    <button id="btnModeSiswa" class="button_active">Mode Siswa</button>
+    <button id="btnModeGuru">Mode Guru</button>
+    <button id="btnModeRekap">Rekap Nilai</button>
+  </div>
+
+  <!-- MODE SISWA -->
+  <section id="sectionSiswa" class="section active">
+    <div class="card">
+      <h2>Ujian Online - Siswa</h2>
+      <p style="font-size:13px;margin:4px 0;">
+        Ujian aktif: <b><span id="examNameViewSiswa">Belum diatur</span></b>,
+        durasi <span id="examDurationViewSiswa">0</span> menit.
+      </p>
+      <div class="info-box">
+        Isikan nama, kelas, dan kode ujian dari guru, lalu klik
+        <b>Mulai Ujian</b>.
+      </div>
+      <label>Nama Siswa</label>
+      <input type="text" id="siswaNama" />
+      <label>Kelas</label>
+      <input type="text" id="siswaKelas" />
+      <label>Kode Ujian</label>
+      <input type="text" id="siswaExamCode" />
+      <button class="btn btn-primary mt-3" id="btnMulaiUjian">Mulai Ujian</button>
     </div>
 
-    <!-- ================== SECTION SISWA ================== -->
-    <section id="sectionSiswa" class="section active">
-        <h2>Ujian Online - Siswa</h2>
-        <p id="infoUjianAktif" style="font-size:14px;margin-bottom:8px;">
-            Ujian aktif: <b><span id="examNameViewSiswa">Belum diatur</span></b>
-            (durasi: <span id="examDurationViewSiswa">0</span> menit)
-        </p>
-        <div id="siswaFormInfo" class="info-box">
-            Isikan nama, kelas, dan kode ujian dari guru, lalu klik <b>Mulai Ujian</b>.
-            Jangan pindah ke jendela lain selama ujian berlangsung.
+    <div id="ujianArea" class="card hidden">
+      <div class="flex" style="justify-content:space-between;align-items:center;">
+        <h3>Soal Pilihan Ganda</h3>
+        <div id="timerArea" class="hidden">
+          <b>Sisa waktu:</b> <span id="timerText">--:--</span>
+        </div>
+      </div>
+      <div id="soalContainer" class="mt-2"></div>
+      <button class="btn btn-primary mt-3" id="btnSelesaiUjian">Selesai &amp; Lihat Nilai</button>
+      <div id="peringatanFocus" class="alert hidden">
+        Sistem mendeteksi perpindahan jendela/tab. Harap fokus di halaman ujian.
+      </div>
+    </div>
+
+    <div id="hasilArea" class="card hidden">
+      <h3>Hasil Ujian</h3>
+      <p><b>Nama:</b> <span id="hasilNama"></span></p>
+      <p><b>Kelas:</b> <span id="hasilKelas"></span></p>
+      <p><b>Skor:</b> <span id="hasilSkor"></span></p>
+      <p><b>Predikat:</b> <span id="hasilPredikat"></span></p>
+      <p><b>Status:</b> <span id="hasilStatus"></span></p>
+      <button class="btn btn-primary mt-2" id="btnDownloadNilai">Download Nilai (Excel/CSV)</button>
+    </div>
+  </section>
+
+  <!-- LOGIN GURU -->
+  <section id="sectionGuruLogin" class="section">
+    <div class="card">
+      <h2>Login Guru (Admin)</h2>
+      <div class="info-box">
+        Login menggunakan email & password yang sudah didaftarkan di Firebase Authentication.
+      </div>
+      <label>Email</label>
+      <input type="text" id="adminUser" />
+      <label>Password</label>
+      <input type="password" id="adminPass" />
+      <button class="btn btn-primary mt-2" id="btnLoginGuru">Login</button>
+      <div id="loginError" class="alert hidden"></div>
+    </div>
+  </section>
+
+  <!-- PANEL GURU -->
+  <section id="sectionGuruPanel" class="section">
+    <div class="card">
+      <div class="flex" style="justify-content:space-between;align-items:center;">
+        <div>
+          <h2>Panel Guru / Admin</h2>
+          <div id="adminInfoText" style="font-size:12px;color:#4b5563;">
+            Belum login.
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnLogoutGuru">Logout</button>
+      </div>
+      <div class="info-box">
+        Ujian dan bank soal disimpan di Firestore per kode ujian. Guru lain tidak dapat menimpa ujian guru ini.
+      </div>
+    </div>
+
+    <div class="flex">
+      <!-- Pengaturan ujian + kop -->
+      <div class="flex-1">
+        <div class="card">
+          <h3>Pengaturan Ujian</h3>
+          <label>Nama Ujian / Mapel</label>
+          <input type="text" id="examNameInput" placeholder="Ujian Contoh" />
+          <label>Kode Ujian</label>
+          <input type="text" id="examCodeInput" placeholder="1234" />
+          <label>Durasi Ujian (menit)</label>
+          <input type="number" id="examDurationInput" min="1" value="60" />
+          <button class="btn btn-primary mt-2" id="btnSimpanUjian">Simpan Pengaturan (Lokal)</button>
+          <button class="btn btn-secondary mt-2" id="btnLoadExamDb">Ambil dari Database</button>
+          <button class="btn btn-primary mt-2" id="btnSaveExamDb">Simpan Ujian + Soal ke Database</button>
         </div>
 
-        <div id="siswaIdentitas">
-            <label>Nama Siswa</label>
-            <input type="text" id="siswaNama" placeholder="Contoh: Budi Santoso" />
-
-            <label>Kelas</label>
-            <input type="text" id="siswaKelas" placeholder="Contoh: 9A" />
-
-            <label>Kode Ujian</label>
-            <input type="text" id="siswaExamCode" placeholder="Masukkan kode ujian dari guru" />
-
-            <button class="btn btn-primary mt-3" id="btnMulaiUjian">Mulai Ujian</button>
+        <div class="card">
+          <h3>Pengaturan Header</h3>
+          <label>Subjudul Header</label>
+          <input type="text" id="headerSubtitleInput" placeholder="Final Assessment Ujian Online" />
+          <button class="btn btn-primary mt-2" id="btnSimpanHeader">Simpan Header</button>
         </div>
 
-        <div id="ujianArea" class="mt-4 hidden">
-            <h3>Soal Pilihan Ganda</h3>
-            <div id="timerArea" class="mt-2 hidden">
-                <b>Sisa waktu:</b> <span id="timerText">--:--</span>
-            </div>
-            <div id="soalContainer" class="mt-2"></div>
-            <button class="btn btn-primary mt-3" id="btnSelesaiUjian">Selesai &amp; Lihat Nilai</button>
-            <div id="peringatanFocus" class="alert hidden">
-                Sistem mendeteksi Anda berpindah jendela/tab. Harap tetap fokus pada halaman ujian.
-            </div>
+        <div class="card">
+          <h3>Pengaturan Kop Daftar Nilai</h3>
+          <label>Judul Kop</label>
+          <input type="text" id="kopTitle" placeholder="DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE" />
+          <label>Sub Judul</label>
+          <input type="text" id="kopSubtitle" placeholder="SMP NEGERI 6 SAMPANG" />
+          <button class="btn btn-primary mt-2" id="btnSimpanKop">Simpan Kop</button>
         </div>
+      </div>
 
-        <div id="hasilArea" class="mt-4 hidden">
-            <h3>Hasil Ujian</h3>
-            <p><b>Nama:</b> <span id="hasilNama"></span></p>
-            <p><b>Kelas:</b> <span id="hasilKelas"></span></p>
-            <p><b>Skor:</b> <span id="hasilSkor"></span></p>
-            <p><b>Predikat:</b> <span id="hasilPredikat"></span></p>
-            <p><b>Status:</b> <span id="hasilStatus"></span></p>
+      <!-- Bank soal -->
+      <div class="flex-2">
+        <div class="card">
+          <h3>Kelola Soal Ujian</h3>
+          <div class="question-card">
+            <h4 id="formSoalTitle">Tambah Soal Baru</h4>
+            <input type="hidden" id="editIndex" value="-1" />
+            <label>Pertanyaan</label>
+            <textarea id="soalText"></textarea>
+            <label>Pilihan 1</label>
+            <input type="text" id="pilihan1" />
+            <label>Pilihan 2</label>
+            <input type="text" id="pilihan2" />
+            <label>Pilihan 3</label>
+            <input type="text" id="pilihan3" />
+            <label>Pilihan 4</label>
+            <input type="text" id="pilihan4" />
+            <label>Jawaban Benar</label>
+            <select id="jawabanBenar">
+              <option value="0">Pilihan 1</option>
+              <option value="1">Pilihan 2</option>
+              <option value="2">Pilihan 3</option>
+              <option value="3">Pilihan 4</option>
+            </select>
+            <label>Skor Soal</label>
+            <input type="number" id="skorSoal" value="1" min="1" />
+            <button class="btn btn-primary mt-2" id="btnSimpanSoal">Simpan Soal</button>
+            <button class="btn btn-secondary mt-2 hidden" id="btnBatalEdit">Batal Edit</button>
+          </div>
 
-            <button class="btn btn-primary mt-3" id="btnDownloadNilai">Download Nilai (Excel/CSV)</button>
+          <div class="mt-2">
+            <button class="btn btn-secondary btn-sm" id="btnDownloadBankSoal">Download Bank Soal (JSON)</button>
+            <input type="file" id="uploadBankSoal" accept=".json" />
+          </div>
+
+          <h4 class="mt-3">Daftar Soal</h4>
+          <table id="tabelSoal">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Soal</th>
+                <th>Skor</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-    </section>
+      </div>
+    </div>
 
-    <!-- ================== SECTION GURU LOGIN ================== -->
-    <section id="sectionGuruLogin" class="section">
-        <h2>Login Guru (Admin)</h2>
-        <div class="info-box">
-            Login menggunakan <b>email &amp; password guru</b> yang sudah didaftarkan di
-            <b>Firebase Authentication</b> (contoh: dwicandra15@guru.smp.belajar.id).
-            Pengaturan akun guru dilakukan dari Firebase console.
+    <!-- Rekap di panel guru -->
+    <div class="card mt-3">
+      <h3>Rekap Nilai (Upload CSV)</h3>
+      <p style="font-size:13px;">
+        Format CSV: <b>Nama, Kelas, Predikat, Score, Status</b>.
+      </p>
+      <div class="flex">
+        <div class="flex-1">
+          <input type="file" id="fileNilai" accept=".csv" />
         </div>
-        <label>Email Guru</label>
-        <input type="text" id="adminUser" placeholder="contoh: guru@smp.sch.id" />
-
-        <label>Password</label>
-        <input type="password" id="adminPass" />
-
-        <button class="btn btn-primary mt-3" id="btnLoginGuru">Login</button>
-
-        <p id="loginError" class="alert hidden">Login gagal. Periksa email &amp; password.</p>
-    </section>
-
-    <!-- ================== SECTION GURU PANEL ================== -->
-    <section id="sectionGuruPanel" class="section">
-        <div class="flex" style="justify-content: space-between; align-items: center;">
-            <h2>Panel Guru / Admin</h2>
-            <button class="btn btn-secondary btn-sm" id="btnLogoutGuru">Logout</button>
+        <div class="flex-1">
+          <button class="btn btn-primary" id="btnTampilkanDaftarSiswa">Tampilkan Daftar Siswa</button>
         </div>
+      </div>
 
-        <div class="info-box">
-            Di sini guru bisa mengatur <b>pengaturan ujian</b> (nama, kode, durasi),
-            <b>header aplikasi</b>, <b>kop laporan</b>, mengelola <b>bank soal</b>,
-            dan meng-upload nilai siswa (file CSV dari Excel).
-            <br />
-            <b>Catatan:</b> Pengaturan ujian &amp; bank soal disimpan di
-            <b>Firebase Firestore</b> berdasarkan <b>kode ujian</b>.
+      <div class="flex mt-2">
+        <div class="flex-1">
+          <label>Filter Nama</label>
+          <input type="text" id="filterNama" placeholder="Cari nama..." />
         </div>
-
-        <div class="flex mt-3">
-            <!-- Kolom kiri: pengaturan & kop -->
-            <div class="flex-1">
-                <h3>Pengaturan Ujian</h3>
-                <label>Nama Ujian / Mapel</label>
-                <input type="text" id="examNameInput" placeholder="Contoh: UTS Bahasa Inggris Kelas 9" />
-
-                <label>Kode Ujian</label>
-                <input type="text" id="examCodeInput" placeholder="Misal: ING9UTS2025" />
-
-                <label>Durasi Ujian (menit)</label>
-                <input type="number" id="examDurationInput" min="1" value="60" />
-
-                <button class="btn btn-primary mt-2" id="btnSimpanUjian">Simpan Pengaturan (Lokal)</button>
-                <button class="btn btn-secondary mt-2" id="btnLoadExamDb">Ambil dari Database</button>
-                <button class="btn btn-primary mt-2" id="btnSaveExamDb">Simpan Ujian + Soal ke Database</button>
-                <p style="font-size:12px;margin-top:4px;">
-                    Nama, kode, dan durasi ini digunakan di halaman siswa. Data di Firestore disimpan per kode ujian.
-                </p>
-
-                <h3 class="mt-3">Pengaturan Header Aplikasi</h3>
-                <label>Subjudul Header</label>
-                <input type="text" id="headerSubtitleInput" placeholder="Misal: Ujian Online SMPN 1 Contoh" />
-                <button class="btn btn-primary mt-2" id="btnSimpanHeader">Simpan Header</button>
-                <p style="font-size:12px;margin-top:4px;">
-                    Teks ini muncul di bawah judul "Aplikasi Ujian Online".
-                </p>
-
-                <h3 class="mt-3">Pengaturan Kop Laporan</h3>
-                <label>Judul Kop</label>
-                <input type="text" id="kopTitle" placeholder="DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE" />
-
-                <label>Sub Judul</label>
-                <input type="text" id="kopSubtitle" placeholder="SMP NEGERI 6 SAMPANG" />
-
-                <button class="btn btn-primary mt-2" id="btnSimpanKop">Simpan Kop</button>
-                <p style="font-size:12px;margin-top:4px;">
-                    Kop ini akan tampil di atas daftar siswa yang di-upload.
-                </p>
-            </div>
-
-            <!-- Kolom kanan: Bank soal -->
-            <div class="flex-2">
-                <h3>Kelola Soal Ujian</h3>
-                <div class="question-card">
-                    <h4 id="formSoalTitle">Tambah Soal Baru</h4>
-                    <input type="hidden" id="editIndex" value="-1" />
-
-                    <label>Pertanyaan</label>
-                    <textarea id="soalText" placeholder="Tulis teks soal di sini."></textarea>
-
-                    <label>Pilihan 1</label>
-                    <input type="text" id="pilihan1" />
-
-                    <label>Pilihan 2</label>
-                    <input type="text" id="pilihan2" />
-
-                    <label>Pilihan 3</label>
-                    <input type="text" id="pilihan3" />
-
-                    <label>Pilihan 4</label>
-                    <input type="text" id="pilihan4" />
-
-                    <label>Jawaban Benar</label>
-                    <select id="jawabanBenar">
-                        <option value="0">Pilihan 1</option>
-                        <option value="1">Pilihan 2</option>
-                        <option value="2">Pilihan 3</option>
-                        <option value="3">Pilihan 4</option>
-                    </select>
-
-                    <label>Skor Soal</label>
-                    <input type="number" id="skorSoal" min="1" value="1" />
-
-                    <button class="btn btn-primary mt-2" id="btnSimpanSoal">Simpan Soal</button>
-                    <button class="btn btn-secondary mt-2 hidden" id="btnBatalEdit">Batal Edit</button>
-                </div>
-
-                <div class="mt-2">
-                    <button class="btn btn-secondary btn-sm" id="btnDownloadBankSoal">Download Bank Soal (JSON)</button>
-                    <input type="file" id="uploadBankSoal" accept=".json" />
-                </div>
-
-                <h4 class="mt-3">Daftar Soal</h4>
-                <table id="tabelSoal">
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Soal</th>
-                            <th>Skor</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+        <div class="flex-1">
+          <label>Filter Kelas</label>
+          <input type="text" id="filterKelas" placeholder="Cari kelas..." />
         </div>
+      </div>
 
-        <!-- ================== REKAP NILAI ================== -->
-        <hr class="mt-4" />
-        <h3 class="mt-4">Rekap Nilai Siswa (Upload CSV)</h3>
-        <p style="font-size:14px;">
-            Gunakan file CSV dengan kolom:
-            <b>Nama, Kelas, Predikat, Score, Status</b>.
-            File CSV bisa dibuat dari Excel dengan menu <b>Save As → CSV</b>.
-        </p>
-
-        <div class="flex mt-2">
-            <div class="flex-1">
-                <input type="file" id="fileNilai" accept=".csv" />
-            </div>
-            <div class="flex-1">
-                <button class="btn btn-primary" id="btnTampilkanDaftarSiswa">
-                    Tampilkan Daftar Siswa
-                </button>
-            </div>
+      <div class="mt-3" id="daftarNilaiArea">
+        <div class="kop">
+          <div class="kop-title" id="kopTitleView">DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE</div>
+          <div class="kop-subtitle" id="kopSubtitleView">SMP NEGERI 6 SAMPANG</div>
         </div>
+        <table id="tabelNilai">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Kelas</th>
+              <th>Predikat</th>
+              <th>Score</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-        <!-- Filter -->
-        <div class="flex mt-3">
-            <div class="flex-1">
-                <label>Filter Nama</label>
-                <input type="text" id="filterNama" placeholder="Cari nama..." />
-            </div>
-            <div class="flex-1">
-                <label>Filter Kelas</label>
-                <input type="text" id="filterKelas" placeholder="Cari kelas..." />
-            </div>
-        </div>
+      <div class="mt-2">
+        <button class="btn btn-primary" id="btnDownloadDaftarNilaiCSV">Download Daftar Nilai (CSV)</button>
+        <button class="btn btn-secondary" id="btnPrintDaftarNilaiPDF">Download Daftar Nilai (PDF)</button>
+      </div>
+    </div>
+  </section>
 
-        <div class="mt-3" id="daftarNilaiArea">
-            <div class="kop">
-                <div class="kop-title" id="kopTitleView">DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE</div>
-                <div class="kop-subtitle" id="kopSubtitleView">SMP NEGERI 6 SAMPANG</div>
-            </div>
-            <table id="tabelNilai">
-                <thead>
-                    <tr>
-                        <th>Nama</th>
-                        <th>Kelas</th>
-                        <th>Predikat</th>
-                        <th>Score</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="mt-3">
-            <button class="btn btn-primary" id="btnDownloadDaftarNilaiCSV">Download Daftar Nilai (CSV)</button>
-            <button class="btn btn-secondary" id="btnPrintDaftarNilaiPDF">Download Daftar Nilai (PDF)</button>
-        </div>
-    </section>
+  <!-- MODE REKAP TAMPILAN -->
+  <section id="sectionRekap" class="section">
+    <div class="card">
+      <h2>Rekap Nilai (Tampilan)</h2>
+      <p style="font-size:13px;">
+        Mode ini menampilkan tabel daftar nilai yang sama dengan panel guru.
+      </p>
+      <div id="rekapClone"></div>
+    </div>
+  </section>
 </main>
 
-<div class="global-watermark">
-    Created &amp; Developed by <b>D.D Candra</b>
+<div class="watermark-global">
+  Created &amp; Developed by <b>D.D Candra</b>
 </div>
 
 <script>
-    /* ================== INISIALISASI FIREBASE ================== */
-    const firebaseConfig = {
-        apiKey: "AIzaSyD117v_QWb2d2GPXirp7GwmxD_xrHMOy4Y",
-        authDomain: "final-assesment-589ad.firebaseapp.com",
-        projectId: "final-assesment-589ad",
-        storageBucket: "final-assesment-589ad.appspot.com",
-        messagingSenderId: "919319444692",
-        appId: "1:919319444692:web:99ed966b427684e5e5cf41"
+  /* Firebase config */
+  const firebaseConfig = {
+    apiKey: "AIzaSyD117v_QWb2d2GPXirp7GwmxD_xrHMOy4Y",
+    authDomain: "final-assesment-589ad.firebaseapp.com",
+    projectId: "final-assesment-589ad",
+    storageBucket: "final-assesment-589ad.appspot.com",
+    messagingSenderId: "919319444692",
+    appId: "1:919319444692:web:99ed966b427684e5e5cf41"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const defaultSoalList = [
+    {
+      text: "How are you today?",
+      choices: ["I am fine", "No", "Yes", "Fine"],
+      correctIndex: 0,
+      score: 1
+    },
+    {
+      text: "Bahasa Inggris dari 'sekolah' adalah ....",
+      choices: ["Hospital", "Market", "School", "Library"],
+      correctIndex: 2,
+      score: 1
+    }
+  ];
+  function normalizeSoalList(list) {
+    if (!Array.isArray(list) || list.length === 0) list = defaultSoalList;
+    return list.map(item => {
+      const s = parseFloat(item.score);
+      let score = !isNaN(s) && s > 0 ? s : 1;
+      return {
+        text: item.text || "",
+        choices: Array.isArray(item.choices) ? item.choices : ["", "", "", ""],
+        correctIndex: typeof item.correctIndex === "number" ? item.correctIndex : 0,
+        score
+      };
+    });
+  }
+  let soalList = normalizeSoalList(defaultSoalList);
+
+  /* Mode & section */
+  const btnModeSiswa = document.getElementById("btnModeSiswa");
+  const btnModeGuru = document.getElementById("btnModeGuru");
+  const btnModeRekap = document.getElementById("btnModeRekap");
+  const sectionSiswa = document.getElementById("sectionSiswa");
+  const sectionGuruLogin = document.getElementById("sectionGuruLogin");
+  const sectionGuruPanel = document.getElementById("sectionGuruPanel");
+  const sectionRekap = document.getElementById("sectionRekap");
+
+  function showSectionSiswa() {
+    sectionSiswa.classList.add("active");
+    sectionGuruLogin.classList.remove("active");
+    sectionGuruPanel.classList.remove("active");
+    sectionRekap.classList.remove("active");
+    btnModeSiswa.classList.add("button_active");
+    btnModeGuru.classList.remove("button_active");
+    btnModeRekap.classList.remove("button_active");
+  }
+  function showSectionGuru() {
+    sectionSiswa.classList.remove("active");
+    if (auth.currentUser) {
+      sectionGuruPanel.classList.add("active");
+      sectionGuruLogin.classList.remove("active");
+    } else {
+      sectionGuruLogin.classList.add("active");
+      sectionGuruPanel.classList.remove("active");
+    }
+    sectionRekap.classList.remove("active");
+    btnModeSiswa.classList.remove("button_active");
+    btnModeGuru.classList.add("button_active");
+    btnModeRekap.classList.remove("button_active");
+  }
+  function showSectionRekap() {
+    sectionSiswa.classList.remove("active");
+    sectionGuruLogin.classList.remove("active");
+    sectionGuruPanel.classList.remove("active");
+    sectionRekap.classList.add("active");
+    btnModeSiswa.classList.remove("button_active");
+    btnModeGuru.classList.remove("button_active");
+    btnModeRekap.classList.add("button_active");
+    const src = document.getElementById("daftarNilaiArea");
+    const dst = document.getElementById("rekapClone");
+    dst.innerHTML = "";
+    dst.appendChild(src.cloneNode(true));
+  }
+  btnModeSiswa.addEventListener("click", showSectionSiswa);
+  btnModeGuru.addEventListener("click", showSectionGuru);
+  btnModeRekap.addEventListener("click", showSectionRekap);
+
+  /* Login guru */
+  const btnLoginGuru = document.getElementById("btnLoginGuru");
+  const loginError = document.getElementById("loginError");
+  const btnLogoutGuru = document.getElementById("btnLogoutGuru");
+  const adminUserInput = document.getElementById("adminUser");
+  const adminPassInput = document.getElementById("adminPass");
+  const adminInfoText = document.getElementById("adminInfoText");
+
+  btnLoginGuru.addEventListener("click", async () => {
+    const email = adminUserInput.value.trim();
+    const pass = adminPassInput.value.trim();
+    if (!email || !pass) {
+      loginError.textContent = "Email dan password wajib diisi.";
+      loginError.classList.remove("hidden");
+      return;
+    }
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+      loginError.classList.add("hidden");
+      adminUserInput.value = "";
+      adminPassInput.value = "";
+      showSectionGuru();
+      renderTabelSoal();
+      loadExamSettingsFromStorage();
+      loadHeaderSubtitleFromStorage();
+      loadKopFromStorage();
+    } catch (err) {
+      console.error(err);
+      let msg = "Login gagal. ";
+      if (err.code === "auth/user-not-found") msg += "Akun tidak ditemukan.";
+      else if (err.code === "auth/wrong-password") msg += "Password salah.";
+      else msg += err.message;
+      loginError.textContent = msg;
+      loginError.classList.remove("hidden");
+    }
+  });
+
+  btnLogoutGuru.addEventListener("click", async () => {
+    try { await auth.signOut(); } catch (e) {}
+    showSectionSiswa();
+  });
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
+    } else {
+      adminInfoText.textContent = "Belum login.";
+    }
+  });
+
+  /* Pengaturan ujian */
+  const examNameInput = document.getElementById("examNameInput");
+  const examCodeInput = document.getElementById("examCodeInput");
+  const examDurationInput = document.getElementById("examDurationInput");
+  const btnSimpanUjian = document.getElementById("btnSimpanUjian");
+  const btnLoadExamDb = document.getElementById("btnLoadExamDb");
+  const btnSaveExamDb = document.getElementById("btnSaveExamDb");
+  const examNameViewSiswa = document.getElementById("examNameViewSiswa");
+  const examDurationViewSiswa = document.getElementById("examDurationViewSiswa");
+
+  function loadExamSettingsFromStorage() {
+    const name = localStorage.getItem("examName") || "Ujian Contoh";
+    const code = localStorage.getItem("examCode") || "1234";
+    const duration = localStorage.getItem("examDuration") || "60";
+    examNameInput.value = name;
+    examCodeInput.value = code;
+    examDurationInput.value = duration;
+    examNameViewSiswa.textContent = name;
+    examDurationViewSiswa.textContent = duration;
+  }
+  function getExamSettings() {
+    let name = examNameInput.value.trim() || localStorage.getItem("examName") || "Ujian Contoh";
+    let code = examCodeInput.value.trim() || localStorage.getItem("examCode") || "1234";
+    let duration = parseInt(examDurationInput.value, 10);
+    if (isNaN(duration) || duration <= 0) {
+      duration = parseInt(localStorage.getItem("examDuration") || "60", 10);
+    }
+    if (isNaN(duration) || duration <= 0) duration = 60;
+    return { name, code, duration };
+  }
+  btnSimpanUjian.addEventListener("click", () => {
+    const { name, code, duration } = getExamSettings();
+    localStorage.setItem("examName", name);
+    localStorage.setItem("examCode", code);
+    localStorage.setItem("examDuration", String(duration));
+    examNameViewSiswa.textContent = name;
+    examDurationViewSiswa.textContent = duration;
+    alert("Pengaturan ujian disimpan di browser. Klik 'Simpan Ujian + Soal ke Database' untuk mengirim ke Firestore.");
+  });
+
+  btnSaveExamDb.addEventListener("click", async () => {
+    const { name, code, duration } = getExamSettings();
+    if (!name || !code) {
+      alert("Nama ujian dan kode ujian wajib diisi.");
+      return;
+    }
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Guru belum login.");
+      return;
+    }
+    const data = {
+      name,
+      code,
+      duration,
+      soalList,
+      ownerUid: user.uid,
+      ownerEmail: user.email || ""
     };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    /* ================== DEFAULT BANK SOAL ================== */
-    const defaultSoalList = [
-        {
-            text: "How are you today?",
-            choices: ["I am fine", "No", "Yes", "Fine"],
-            correctIndex: 0,
-            score: 1
-        },
-        {
-            text: "Bahasa Inggris dari 'sekolah' adalah ....",
-            choices: ["Hospital", "Market", "School", "Library"],
-            correctIndex: 2,
-            score: 1
-        }
-    ];
-
-    function normalizeSoalList(list) {
-        if (!Array.isArray(list) || list.length === 0) {
-            list = defaultSoalList;
-        }
-        return list.map(item => {
-            const s = parseFloat(item.score);
-            let score = (!isNaN(s) && s > 0) ? s : 1;
-            return {
-                text: item.text || "",
-                choices: Array.isArray(item.choices) ? item.choices : ["", "", "", ""],
-                correctIndex: typeof item.correctIndex === "number" ? item.correctIndex : 0,
-                score
-            };
-        });
+    try {
+      await db.collection("exams").doc(code).set(data);
+      alert("Ujian & bank soal berhasil disimpan ke Firestore dengan kode: " + code);
+    } catch (e) {
+      console.error(e);
+      alert("Gagal menyimpan ke database. Periksa rules Firestore.");
     }
+  });
 
-    // Soal yang sedang diedit di panel guru
-    let soalList = normalizeSoalList(defaultSoalList);
-
-    /* ================== ELEMEN UMUM ================== */
-    const btnSiswa = document.getElementById("btnSiswa");
-    const btnGuru = document.getElementById("btnGuru");
-    const sectionSiswa = document.getElementById("sectionSiswa");
-    const sectionGuruLogin = document.getElementById("sectionGuruLogin");
-    const sectionGuruPanel = document.getElementById("sectionGuruPanel");
-
-    let isAdminLoggedIn = false;
-    let ujianBerlangsung = false;
-
-    function showSectionSiswa() {
-        btnSiswa.classList.add("active");
-        btnGuru.classList.remove("active");
-        sectionSiswa.classList.add("active");
-        sectionGuruLogin.classList.remove("active");
-        sectionGuruPanel.classList.remove("active");
+  btnLoadExamDb.addEventListener("click", async () => {
+    const code = examCodeInput.value.trim();
+    if (!code) {
+      alert("Isi kode ujian terlebih dahulu.");
+      return;
     }
-    function showSectionGuru() {
-        btnSiswa.classList.remove("active");
-        btnGuru.classList.add("active");
-        sectionSiswa.classList.remove("active");
-        if (isAdminLoggedIn) {
-            sectionGuruPanel.classList.add("active");
-            sectionGuruLogin.classList.remove("active");
-        } else {
-            sectionGuruLogin.classList.add("active");
-            sectionGuruPanel.classList.remove("active");
-        }
+    try {
+      const docSnap = await db.collection("exams").doc(code).get();
+      if (!docSnap.exists) {
+        alert("Ujian dengan kode tersebut tidak ditemukan.");
+        return;
+      }
+      const data = docSnap.data();
+      examNameInput.value = data.name || "";
+      examDurationInput.value = data.duration || 60;
+      examNameViewSiswa.textContent = data.name || "";
+      examDurationViewSiswa.textContent = data.duration || 0;
+      soalList = normalizeSoalList(data.soalList || []);
+      renderTabelSoal();
+      alert("Ujian & bank soal berhasil dimuat dari Firestore.");
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengambil dari Firestore.");
     }
+  });
 
-    btnSiswa.addEventListener("click", showSectionSiswa);
-    btnGuru.addEventListener("click", showSectionGuru);
+  /* Header & kop */
+  const headerSubtitleInput = document.getElementById("headerSubtitleInput");
+  const btnSimpanHeader = document.getElementById("btnSimpanHeader");
+  btnSimpanHeader.addEventListener("click", () => {
+    const text = headerSubtitleInput.value.trim();
+    localStorage.setItem("headerSubtitle", text);
+    document.getElementById("headerSubtitle").textContent =
+      text || "Final Assessment Ujian Online";
+    alert("Header berhasil disimpan.");
+  });
+  function loadHeaderSubtitleFromStorage() {
+    const text = localStorage.getItem("headerSubtitle") || "Final Assessment Ujian Online";
+    headerSubtitleInput.value = text;
+    document.getElementById("headerSubtitle").textContent = text;
+  }
 
-    /* ================== LOGIN GURU (FIREBASE AUTH) ================== */
-    const btnLoginGuru = document.getElementById("btnLoginGuru");
-    const loginError = document.getElementById("loginError");
-    const btnLogoutGuru = document.getElementById("btnLogoutGuru");
-    const adminUserInput = document.getElementById("adminUser");
-    const adminPassInput = document.getElementById("adminPass");
+  const kopTitleInput = document.getElementById("kopTitle");
+  const kopSubtitleInput = document.getElementById("kopSubtitle");
+  const btnSimpanKop = document.getElementById("btnSimpanKop");
+  const kopTitleView = document.getElementById("kopTitleView");
+  const kopSubtitleView = document.getElementById("kopSubtitleView");
+  btnSimpanKop.addEventListener("click", () => {
+    const t = kopTitleInput.value.trim();
+    const s = kopSubtitleInput.value.trim();
+    localStorage.setItem("kopTitle", t);
+    localStorage.setItem("kopSubtitle", s);
+    kopTitleView.textContent = t || "DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE";
+    kopSubtitleView.textContent = s || "SMP NEGERI 6 SAMPANG";
+    alert("Kop berhasil disimpan.");
+  });
+  function loadKopFromStorage() {
+    const t = localStorage.getItem("kopTitle") || "DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE";
+    const s = localStorage.getItem("kopSubtitle") || "SMP NEGERI 6 SAMPANG";
+    kopTitleInput.value = t;
+    kopSubtitleInput.value = s;
+    kopTitleView.textContent = t;
+    kopSubtitleView.textContent = s;
+  }
 
-    btnLoginGuru.addEventListener("click", async () => {
-        const email = adminUserInput.value.trim();
-        const pass = adminPassInput.value.trim();
-        if (!email || !pass) {
-            loginError.textContent = "Email dan password tidak boleh kosong.";
-            loginError.classList.remove("hidden");
-            return;
-        }
-        try {
-            await auth.signInWithEmailAndPassword(email, pass);
-            isAdminLoggedIn = true;
-            loginError.classList.add("hidden");
-            adminUserInput.value = "";
-            adminPassInput.value = "";
-            showSectionGuru();
-            renderTabelSoal();
-            loadExamSettingsFromStorage();
-            loadHeaderSubtitleFromStorage();
-            loadKopFromStorage();
-        } catch (err) {
-            console.error("Login error:", err);
-            let msg = "Login gagal. Periksa email & password.";
-            if (err.code === "auth/user-not-found") msg = "Akun tidak ditemukan.";
-            if (err.code === "auth/wrong-password") msg = "Password salah.";
-            loginError.textContent = msg;
-            loginError.classList.remove("hidden");
-        }
+  /* Kelola soal guru */
+  const soalText = document.getElementById("soalText");
+  const pilihan1 = document.getElementById("pilihan1");
+  const pilihan2 = document.getElementById("pilihan2");
+  const pilihan3 = document.getElementById("pilihan3");
+  const pilihan4 = document.getElementById("pilihan4");
+  const jawabanBenar = document.getElementById("jawabanBenar");
+  const skorSoal = document.getElementById("skorSoal");
+  const btnSimpanSoal = document.getElementById("btnSimpanSoal");
+  const btnBatalEdit = document.getElementById("btnBatalEdit");
+  const tabelSoalBody = document.querySelector("#tabelSoal tbody");
+  const editIndexInput = document.getElementById("editIndex");
+  const formSoalTitle = document.getElementById("formSoalTitle");
+
+  function resetFormSoal() {
+    editIndexInput.value = "-1";
+    formSoalTitle.textContent = "Tambah Soal Baru";
+    soalText.value = "";
+    pilihan1.value = "";
+    pilihan2.value = "";
+    pilihan3.value = "";
+    pilihan4.value = "";
+    jawabanBenar.value = "0";
+    skorSoal.value = "1";
+    btnBatalEdit.classList.add("hidden");
+  }
+  function renderTabelSoal() {
+    tabelSoalBody.innerHTML = "";
+    soalList.forEach((s, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${s.text}</td>
+        <td>${s.score}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" data-idx="${i}" data-act="edit">Edit</button>
+          <button class="btn btn-danger btn-sm" data-idx="${i}" data-act="del">Hapus</button>
+        </td>
+      `;
+      tabelSoalBody.appendChild(tr);
     });
-
-    btnLogoutGuru.addEventListener("click", async () => {
-        try { await auth.signOut(); } catch (e) {}
-        isAdminLoggedIn = false;
-        showSectionSiswa();
+    tabelSoalBody.querySelectorAll("button").forEach(btn => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const act = btn.dataset.act;
+      btn.addEventListener("click", () => {
+        if (act === "edit") editSoal(idx);
+        else if (act === "del") hapusSoal(idx);
+      });
     });
-
-    /* ================== PENGATURAN UJIAN (LOKAL + FIRESTORE) ================== */
-    const examNameInput = document.getElementById("examNameInput");
-    const examCodeInput = document.getElementById("examCodeInput");
-    const examDurationInput = document.getElementById("examDurationInput");
-    const btnSimpanUjian = document.getElementById("btnSimpanUjian");
-    const btnSaveExamDb = document.getElementById("btnSaveExamDb");
-    const btnLoadExamDb = document.getElementById("btnLoadExamDb");
-    const examNameViewSiswa = document.getElementById("examNameViewSiswa");
-    const examDurationViewSiswa = document.getElementById("examDurationViewSiswa");
-
-    btnSimpanUjian.addEventListener("click", () => {
-        let name = examNameInput.value.trim();
-        let code = examCodeInput.value.trim();
-        let duration = parseInt(examDurationInput.value, 10);
-
-        if (!name) { alert("Nama ujian/mapel tidak boleh kosong."); return; }
-        if (!code) { alert("Kode ujian tidak boleh kosong."); return; }
-        if (isNaN(duration) || duration <= 0) { alert("Durasi ujian harus lebih dari 0 menit."); return; }
-
-        localStorage.setItem("examName", name);
-        localStorage.setItem("examCode", code);
-        localStorage.setItem("examDuration", String(duration));
-
-        examNameViewSiswa.textContent = name;
-        examDurationViewSiswa.textContent = duration;
-
-        alert("Pengaturan ujian disimpan di browser. Jangan lupa klik 'Simpan Ujian + Soal ke Database' agar siswa bisa mengerjakan.");
-    });
-
-    function loadExamSettingsFromStorage() {
-        let name = localStorage.getItem("examName") || "Ujian Contoh";
-        let code = localStorage.getItem("examCode") || "1234";
-        let duration = localStorage.getItem("examDuration") || "60";
-
-        examNameInput.value = name;
-        examCodeInput.value = code;
-        examDurationInput.value = duration;
-
-        examNameViewSiswa.textContent = name;
-        examDurationViewSiswa.textContent = duration;
+  }
+  function editSoal(index) {
+    const s = soalList[index];
+    editIndexInput.value = String(index);
+    formSoalTitle.textContent = "Edit Soal #" + (index + 1);
+    soalText.value = s.text;
+    pilihan1.value = s.choices[0] || "";
+    pilihan2.value = s.choices[1] || "";
+    pilihan3.value = s.choices[2] || "";
+    pilihan4.value = s.choices[3] || "";
+    jawabanBenar.value = String(s.correctIndex);
+    skorSoal.value = s.score;
+    btnBatalEdit.classList.remove("hidden");
+  }
+  function hapusSoal(index) {
+    if (!confirm("Hapus soal nomor " + (index + 1) + "?")) return;
+    soalList.splice(index, 1);
+    renderTabelSoal();
+  }
+  btnBatalEdit.addEventListener("click", resetFormSoal);
+  btnSimpanSoal.addEventListener("click", () => {
+    const text = soalText.value.trim();
+    const c1 = pilihan1.value.trim();
+    const c2 = pilihan2.value.trim();
+    const c3 = pilihan3.value.trim();
+    const c4 = pilihan4.value.trim();
+    const correct = parseInt(jawabanBenar.value, 10);
+    const score = parseFloat(skorSoal.value);
+    if (!text || !c1 || !c2 || !c3 || !c4) {
+      alert("Semua field harus diisi.");
+      return;
     }
-
-    function getExamSettings() {
-        let name = examNameInput.value.trim() || localStorage.getItem("examName") || "Ujian Contoh";
-        let code = examCodeInput.value.trim() || localStorage.getItem("examCode") || "1234";
-        let duration = parseInt(examDurationInput.value, 10);
-        if (isNaN(duration) || duration <= 0) {
-            duration = parseInt(localStorage.getItem("examDuration") || "60", 10);
-        }
-        if (isNaN(duration) || duration <= 0) duration = 60;
-        return { name, code, duration };
+    if (isNaN(score) || score <= 0) {
+      alert("Skor soal harus lebih dari 0.");
+      return;
     }
+    const newSoal = { text, choices: [c1, c2, c3, c4], correctIndex: correct, score };
+    const idx = parseInt(editIndexInput.value, 10);
+    if (!isNaN(idx) && idx >= 0) soalList[idx] = newSoal;
+    else soalList.push(newSoal);
+    renderTabelSoal();
+    resetFormSoal();
+    alert("Soal disimpan. Jika final, klik 'Simpan Ujian + Soal ke Database'.");
+  });
 
-    // Simpan ujian + soal ke Firestore
-    btnSaveExamDb.addEventListener("click", async () => {
-        const { name, code, duration } = getExamSettings();
-        if (!name || !code) {
-            alert("Nama ujian dan kode ujian wajib diisi.");
-            return;
-        }
-        const data = {
-            name,
-            code,
-            duration,
-            soalList
-        };
-        try {
-            await db.collection("exams").doc(code).set(data);
-            alert("Ujian & bank soal berhasil disimpan ke Firestore dengan kode: " + code);
-        } catch (e) {
-            console.error("Gagal simpan ke Firestore:", e);
-            alert("Gagal menyimpan ke database. Periksa aturan keamanan Firestore.");
-        }
-    });
-
-    // Ambil ujian + soal dari Firestore berdasarkan kode
-    btnLoadExamDb.addEventListener("click", async () => {
-        const code = examCodeInput.value.trim();
-        if (!code) {
-            alert("Isi kode ujian terlebih dahulu.");
-            return;
-        }
-        try {
-            const doc = await db.collection("exams").doc(code).get();
-            if (!doc.exists) {
-                alert("Ujian dengan kode tersebut belum ada di database.");
-                return;
-            }
-            const data = doc.data();
-            examNameInput.value = data.name || "";
-            examDurationInput.value = data.duration || 60;
-            examNameViewSiswa.textContent = data.name || "";
-            examDurationViewSiswa.textContent = data.duration || 0;
-            soalList = normalizeSoalList(data.soalList || []);
-            renderTabelSoal();
-            alert("Ujian & bank soal berhasil dimuat dari database.");
-        } catch (e) {
-            console.error("Gagal ambil dari Firestore:", e);
-            alert("Gagal mengambil dari database. Periksa koneksi & aturan Firestore.");
-        }
-    });
-
-    /* ================== HEADER & KOP ================== */
-    const headerSubtitleInput = document.getElementById("headerSubtitleInput");
-    const btnSimpanHeader = document.getElementById("btnSimpanHeader");
-    btnSimpanHeader.addEventListener("click", () => {
-        const text = headerSubtitleInput.value.trim();
-        localStorage.setItem("headerSubtitle", text);
-        document.getElementById("headerSubtitle").textContent = text || "Contoh sederhana berbasis HTML + JavaScript (tanpa server)";
-        alert("Header berhasil disimpan.");
-    });
-
-    function loadHeaderSubtitleFromStorage() {
-        const text = localStorage.getItem("headerSubtitle") || "Contoh sederhana berbasis HTML + JavaScript (tanpa server)";
-        headerSubtitleInput.value = text;
-        document.getElementById("headerSubtitle").textContent = text;
-    }
-
-    const kopTitleInput = document.getElementById("kopTitle");
-    const kopSubtitleInput = document.getElementById("kopSubtitle");
-    const btnSimpanKop = document.getElementById("btnSimpanKop");
-    const kopTitleView = document.getElementById("kopTitleView");
-    const kopSubtitleView = document.getElementById("kopSubtitleView");
-
-    btnSimpanKop.addEventListener("click", () => {
-        const t = kopTitleInput.value.trim();
-        const s = kopSubtitleInput.value.trim();
-        localStorage.setItem("kopTitle", t);
-        localStorage.setItem("kopSubtitle", s);
-        kopTitleView.textContent = t || "DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE";
-        kopSubtitleView.textContent = s || "SMP NEGERI 6 SAMPANG";
-        alert("Kop berhasil disimpan.");
-    });
-
-    function loadKopFromStorage() {
-        const t = localStorage.getItem("kopTitle") || "DAFTAR NILAI SISWA ASSESMENT KNOWLEDGE";
-        const s = localStorage.getItem("kopSubtitle") || "SMP NEGERI 6 SAMPANG";
-        kopTitleInput.value = t;
-        kopSubtitleInput.value = s;
-        kopTitleView.textContent = t;
-        kopSubtitleView.textContent = s;
-    }
-
-    /* ================== KELOLA SOAL (GURU) ================== */
-    const soalText = document.getElementById("soalText");
-    const pilihan1 = document.getElementById("pilihan1");
-    const pilihan2 = document.getElementById("pilihan2");
-    const pilihan3 = document.getElementById("pilihan3");
-    const pilihan4 = document.getElementById("pilihan4");
-    const jawabanBenar = document.getElementById("jawabanBenar");
-    const skorSoal = document.getElementById("skorSoal");
-    const btnSimpanSoal = document.getElementById("btnSimpanSoal");
-    const btnBatalEdit = document.getElementById("btnBatalEdit");
-    const tabelSoalBody = document.querySelector("#tabelSoal tbody");
-    const editIndexInput = document.getElementById("editIndex");
-    const formSoalTitle = document.getElementById("formSoalTitle");
-
-    function resetFormSoal() {
-        editIndexInput.value = "-1";
-        formSoalTitle.textContent = "Tambah Soal Baru";
-        soalText.value = "";
-        pilihan1.value = "";
-        pilihan2.value = "";
-        pilihan3.value = "";
-        pilihan4.value = "";
-        jawabanBenar.value = "0";
-        skorSoal.value = "1";
-        btnBatalEdit.classList.add("hidden");
-    }
-
-    function renderTabelSoal() {
-        tabelSoalBody.innerHTML = "";
-        soalList.forEach((s, i) => {
-            const tr = document.createElement("tr");
-            const tdNo = document.createElement("td");
-            tdNo.textContent = i + 1;
-
-            const tdSoal = document.createElement("td");
-            tdSoal.textContent = s.text;
-
-            const tdSkor = document.createElement("td");
-            tdSkor.textContent = s.score;
-
-            const tdAksi = document.createElement("td");
-            const btnEdit = document.createElement("button");
-            btnEdit.textContent = "Edit";
-            btnEdit.className = "btn btn-secondary btn-sm";
-            btnEdit.addEventListener("click", () => editSoal(i));
-
-            const btnHapus = document.createElement("button");
-            btnHapus.textContent = "Hapus";
-            btnHapus.className = "btn btn-danger btn-sm";
-            btnHapus.style.marginLeft = "4px";
-            btnHapus.addEventListener("click", () => hapusSoal(i));
-
-            tdAksi.appendChild(btnEdit);
-            tdAksi.appendChild(btnHapus);
-
-            tr.appendChild(tdNo);
-            tr.appendChild(tdSoal);
-            tr.appendChild(tdSkor);
-            tr.appendChild(tdAksi);
-
-            tabelSoalBody.appendChild(tr);
-        });
-    }
-
-    function editSoal(index) {
-        const s = soalList[index];
-        editIndexInput.value = String(index);
-        formSoalTitle.textContent = "Edit Soal #" + (index + 1);
-        soalText.value = s.text;
-        pilihan1.value = s.choices[0] || "";
-        pilihan2.value = s.choices[1] || "";
-        pilihan3.value = s.choices[2] || "";
-        pilihan4.value = s.choices[3] || "";
-        jawabanBenar.value = String(s.correctIndex);
-        skorSoal.value = s.score;
-        btnBatalEdit.classList.remove("hidden");
-    }
-
-    function hapusSoal(index) {
-        if (!confirm("Hapus soal nomor " + (index + 1) + "?")) return;
-        soalList.splice(index, 1);
+  // bank soal JSON
+  const btnDownloadBankSoal = document.getElementById("btnDownloadBankSoal");
+  const uploadBankSoal = document.getElementById("uploadBankSoal");
+  btnDownloadBankSoal.addEventListener("click", () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(soalList, null, 2));
+    const a = document.createElement("a");
+    a.href = dataStr;
+    a.download = "bank_soal.json";
+    a.click();
+  });
+  uploadBankSoal.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        soalList = normalizeSoalList(parsed);
         renderTabelSoal();
-    }
+        alert("Bank soal berhasil diimpor.");
+      } catch {
+        alert("File JSON tidak valid.");
+      }
+    };
+    reader.readAsText(file);
+  });
 
-    btnBatalEdit.addEventListener("click", () => {
-        resetFormSoal();
-    });
+  /* Mode siswa: ujian */
+  const siswaNamaInput = document.getElementById("siswaNama");
+  const siswaKelasInput = document.getElementById("siswaKelas");
+  const siswaExamCodeInput = document.getElementById("siswaExamCode");
+  const btnMulaiUjian = document.getElementById("btnMulaiUjian");
+  const btnSelesaiUjian = document.getElementById("btnSelesaiUjian");
+  const soalContainer = document.getElementById("soalContainer");
+  const ujianArea = document.getElementById("ujianArea");
+  const hasilArea = document.getElementById("hasilArea");
+  const hasilNama = document.getElementById("hasilNama");
+  const hasilKelas = document.getElementById("hasilKelas");
+  const hasilSkor = document.getElementById("hasilSkor");
+  const hasilPredikat = document.getElementById("hasilPredikat");
+  const hasilStatus = document.getElementById("hasilStatus");
+  const timerArea = document.getElementById("timerArea");
+  const timerText = document.getElementById("timerText");
+  const peringatanFocus = document.getElementById("peringatanFocus");
 
-    btnSimpanSoal.addEventListener("click", () => {
-        const text = soalText.value.trim();
-        const c1 = pilihan1.value.trim();
-        const c2 = pilihan2.value.trim();
-        const c3 = pilihan3.value.trim();
-        const c4 = pilihan4.value.trim();
-        const correct = parseInt(jawabanBenar.value, 10);
-        const score = parseFloat(skorSoal.value);
+  let soalUjianAktif = [];
+  let timerInterval = null;
+  let sisaDetik = 0;
+  let lastPercent = 0;
+  let lastPredikatText = "";
+  let lastStatusText = "";
 
-        if (!text || !c1 || !c2 || !c3 || !c4) {
-            alert("Semua field soal dan pilihan harus diisi.");
-            return;
-        }
-        if (isNaN(score) || score <= 0) {
-            alert("Skor soal harus lebih dari 0.");
-            return;
-        }
-
-        const newSoal = {
-            text,
-            choices: [c1, c2, c3, c4],
-            correctIndex: correct,
-            score
-        };
-
-        const idx = parseInt(editIndexInput.value, 10);
-        if (!isNaN(idx) && idx >= 0) {
-            soalList[idx] = newSoal;
-        } else {
-            soalList.push(newSoal);
-        }
-
-        renderTabelSoal();
-        resetFormSoal();
-        alert("Soal disimpan. Jangan lupa klik 'Simpan Ujian + Soal ke Database' jika sudah final.");
-    });
-
-    // Download / upload bank soal (JSON)
-    const btnDownloadBankSoal = document.getElementById("btnDownloadBankSoal");
-    const uploadBankSoal = document.getElementById("uploadBankSoal");
-
-    btnDownloadBankSoal.addEventListener("click", () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(soalList, null, 2));
-        const a = document.createElement("a");
-        a.href = dataStr;
-        a.download = "bank_soal.json";
-        a.click();
-    });
-
-    uploadBankSoal.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const parsed = JSON.parse(reader.result);
-                soalList = normalizeSoalList(parsed);
-                renderTabelSoal();
-                alert("Bank soal berhasil diimpor dari file.");
-            } catch (err) {
-                console.error(err);
-                alert("File JSON tidak valid.");
-            }
-        };
-        reader.readAsText(file);
-    });
-
-    /* ================== MODE SISWA: UJIAN ================== */
-    const siswaNamaInput = document.getElementById("siswaNama");
-    const siswaKelasInput = document.getElementById("siswaKelas");
-    const siswaExamCodeInput = document.getElementById("siswaExamCode");
-    const btnMulaiUjian = document.getElementById("btnMulaiUjian");
-    const btnSelesaiUjian = document.getElementById("btnSelesaiUjian");
-    const soalContainer = document.getElementById("soalContainer");
-    const ujianArea = document.getElementById("ujianArea");
-    const hasilArea = document.getElementById("hasilArea");
-    const hasilNama = document.getElementById("hasilNama");
-    const hasilKelas = document.getElementById("hasilKelas");
-    const hasilSkor = document.getElementById("hasilSkor");
-    const hasilPredikat = document.getElementById("hasilPredikat");
-    const hasilStatus = document.getElementById("hasilStatus");
-    const timerArea = document.getElementById("timerArea");
-    const timerText = document.getElementById("timerText");
-
-    let soalUjianAktif = [];
-    let timerInterval = null;
-    let sisaDetik = 0;
-
-    function startTimer(durasiMenit) {
-        sisaDetik = durasiMenit * 60;
-        timerArea.classList.remove("hidden");
-        updateTimerText();
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            sisaDetik--;
-            if (sisaDetik <= 0) {
-                clearInterval(timerInterval);
-                alert("Waktu habis! Ujian akan diselesaikan otomatis.");
-                selesaiUjian();
-            } else {
-                updateTimerText();
-            }
-        }, 1000);
-    }
-
-    function updateTimerText() {
-        const m = String(Math.floor(sisaDetik / 60)).padStart(2, "0");
-        const s = String(sisaDetik % 60).padStart(2, "0");
-        timerText.textContent = m + ":" + s;
-    }
-
-    function renderSoalUntukSiswa() {
-        soalContainer.innerHTML = "";
-        soalUjianAktif.forEach((soal, index) => {
-            const card = document.createElement("div");
-            card.className = "question-card";
-
-            const judul = document.createElement("h4");
-            judul.textContent = "Soal " + (index + 1) + ". " + soal.text;
-            card.appendChild(judul);
-
-            const choicesDiv = document.createElement("div");
-            choicesDiv.className = "choices";
-
-            soal.choices.forEach((pilihan, idx) => {
-                const chDiv = document.createElement("div");
-                chDiv.className = "choice";
-
-                const input = document.createElement("input");
-                input.type = "radio";
-                input.name = "soal_" + index;
-                input.value = idx;
-
-                const label = document.createElement("label");
-                label.textContent = pilihan;
-
-                chDiv.appendChild(input);
-                chDiv.appendChild(label);
-                choicesDiv.appendChild(chDiv);
-            });
-
-            card.appendChild(choicesDiv);
-            soalContainer.appendChild(card);
-        });
-    }
-
-    // Mulai ujian: ambil soal dari Firestore berdasar kode ujian
-    btnMulaiUjian.addEventListener("click", async () => {
-        if (ujianBerlangsung) {
-            alert("Ujian sedang berlangsung.");
-            return;
-        }
-        const nama = siswaNamaInput.value.trim();
-        const kelas = siswaKelasInput.value.trim();
-        const kode = siswaExamCodeInput.value.trim();
-
-        if (!nama || !kelas || !kode) {
-            alert("Nama, kelas, dan kode ujian wajib diisi.");
-            return;
-        }
-
-        try {
-            const doc = await db.collection("exams").doc(kode).get();
-            if (!doc.exists) {
-                alert("Kode ujian tidak ditemukan di database. Pastikan guru sudah menyimpan ujian ke Firestore.");
-                return;
-            }
-            const data = doc.data();
-            examNameViewSiswa.textContent = data.name || "Ujian";
-            examDurationViewSiswa.textContent = data.duration || 0;
-            soalUjianAktif = normalizeSoalList(data.soalList || []);
-            if (soalUjianAktif.length === 0) {
-                alert("Belum ada soal pada ujian ini.");
-                return;
-            }
-            ujianBerlangsung = true;
-            renderSoalUntukSiswa();
-            ujianArea.classList.remove("hidden");
-            hasilArea.classList.add("hidden");
-            startTimer(data.duration || 60);
-            window.onblur = () => {
-                document.getElementById("peringatanFocus").classList.remove("hidden");
-            };
-        } catch (e) {
-            console.error("Gagal mengambil soal ujian:", e);
-            alert("Gagal mengambil ujian dari database.");
-        }
-    });
-
-    btnSelesaiUjian.addEventListener("click", () => {
-        if (!ujianBerlangsung) return;
-        if (!confirm("Selesaikan ujian sekarang?")) return;
+  function startTimer(durasiMenit) {
+    sisaDetik = durasiMenit * 60;
+    timerArea.classList.remove("hidden");
+    updateTimerText();
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      sisaDetik--;
+      if (sisaDetik <= 0) {
+        clearInterval(timerInterval);
+        alert("Waktu habis, ujian diselesaikan otomatis.");
         selesaiUjian();
+      } else updateTimerText();
+    }, 1000);
+  }
+  function updateTimerText() {
+    const m = String(Math.floor(sisaDetik / 60)).padStart(2, "0");
+    const s = String(sisaDetik % 60).padStart(2, "0");
+    timerText.textContent = `${m}:${s}`;
+  }
+
+  function renderSoalUntukSiswa() {
+    soalContainer.innerHTML = "";
+    soalUjianAktif.forEach((soal, index) => {
+      const card = document.createElement("div");
+      card.className = "question-card";
+      const judul = document.createElement("h4");
+      judul.textContent = `Soal ${index + 1}. ${soal.text}`;
+      card.appendChild(judul);
+      const choicesDiv = document.createElement("div");
+      choicesDiv.className = "choices";
+      soal.choices.forEach((pilihan, idx) => {
+        const chDiv = document.createElement("div");
+        chDiv.className = "choice";
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "soal_" + index;
+        input.value = idx;
+        const label = document.createElement("label");
+        label.textContent = pilihan;
+        chDiv.appendChild(input);
+        chDiv.appendChild(label);
+        choicesDiv.appendChild(chDiv);
+      });
+      card.appendChild(choicesDiv);
+      soalContainer.appendChild(card);
     });
+  }
 
-    function selesaiUjian() {
-        ujianBerlangsung = false;
-        window.onblur = null;
-        if (timerInterval) clearInterval(timerInterval);
-        timerArea.classList.add("hidden");
-
-        const nama = siswaNamaInput.value.trim();
-        const kelas = siswaKelasInput.value.trim();
-
-        let totalScore = 0;
-        let maxScore = 0;
-
-        soalUjianAktif.forEach((soal, index) => {
-            maxScore += soal.score;
-            const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
-            let jawaban = -1;
-            radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
-            if (jawaban === soal.correctIndex) {
-                totalScore += soal.score;
-            }
-        });
-
-        const persen = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
-
-        let predikat = "Buruk";
-        if (persen >= 90) predikat = "Sangat Bagus";
-        else if (persen >= 75) predikat = "Bagus";
-        else if (persen >= 60) predikat = "Cukup";
-
-        const status = persen >= 70 ? "Tuntas" : "Remidi";
-
-        hasilNama.textContent = nama;
-        hasilKelas.textContent = kelas;
-        hasilSkor.textContent = `${persen} (Skor ${totalScore} dari ${maxScore})`;
-        hasilPredikat.textContent = predikat;
-        hasilStatus.textContent = status;
-
-        ujianArea.classList.add("hidden");
-        hasilArea.classList.remove("hidden");
+  btnMulaiUjian.addEventListener("click", async () => {
+    const nama = siswaNamaInput.value.trim();
+    const kelas = siswaKelasInput.value.trim();
+    const kode = siswaExamCodeInput.value.trim();
+    if (!nama || !kelas || !kode) {
+      alert("Nama, kelas, dan kode ujian wajib diisi.");
+      return;
     }
-
-    // Download nilai satu siswa (CSV sederhana)
-    const btnDownloadNilai = document.getElementById("btnDownloadNilai");
-    btnDownloadNilai.addEventListener("click", () => {
-        const rows = [
-            ["Nama", "Kelas", "Skor (%)", "Predikat", "Status"],
-            [hasilNama.textContent, hasilKelas.textContent, hasilSkor.textContent, hasilPredikat.textContent, hasilStatus.textContent]
-        ];
-        const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
-        const a = document.createElement("a");
-        a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-        a.download = "nilai_" + (hasilNama.textContent || "siswa") + ".csv";
-        a.click();
-    });
-
-    /* ================== REKAP NILAI (CSV, FILTER, PDF) ================== */
-    const fileNilai = document.getElementById("fileNilai");
-    const btnTampilkanDaftarSiswa = document.getElementById("btnTampilkanDaftarSiswa");
-    const tabelNilaiBody = document.querySelector("#tabelNilai tbody");
-    const filterNama = document.getElementById("filterNama");
-    const filterKelas = document.getElementById("filterKelas");
-    let dataNilai = [];   // array objek: {nama, kelas, predikat, score, status}
-
-    function applyFilterNilai() {
-        const fNama = filterNama.value.trim().toLowerCase();
-        const fKelas = filterKelas.value.trim().toLowerCase();
-        tabelNilaiBody.innerHTML = "";
-        dataNilai.forEach(row => {
-            if (fNama && !row.nama.toLowerCase().includes(fNama)) return;
-            if (fKelas && !row.kelas.toLowerCase().includes(fKelas)) return;
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${row.nama}</td>
-                <td>${row.kelas}</td>
-                <td>${row.predikat}</td>
-                <td>${row.score}</td>
-                <td>${row.status}</td>
-            `;
-            tabelNilaiBody.appendChild(tr);
-        });
+    try {
+      const docSnap = await db.collection("exams").doc(kode).get();
+      if (!docSnap.exists) {
+        alert("Kode ujian tidak ditemukan di database.");
+        return;
+      }
+      const data = docSnap.data();
+      examNameViewSiswa.textContent = data.name || "Ujian";
+      examDurationViewSiswa.textContent = data.duration || 0;
+      soalUjianAktif = normalizeSoalList(data.soalList || []);
+      if (soalUjianAktif.length === 0) {
+        alert("Belum ada soal pada ujian ini.");
+        return;
+      }
+      ujianArea.classList.remove("hidden");
+      hasilArea.classList.add("hidden");
+      renderSoalUntukSiswa();
+      startTimer(data.duration || 60);
+      window.onblur = () => {
+        peringatanFocus.classList.remove("hidden");
+      };
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengambil ujian dari database.");
     }
+  });
 
-    filterNama.addEventListener("input", applyFilterNilai);
-    filterKelas.addEventListener("input", applyFilterNilai);
+  btnSelesaiUjian.addEventListener("click", () => {
+    if (!confirm("Selesaikan ujian sekarang?")) return;
+    selesaiUjian();
+  });
 
-    btnTampilkanDaftarSiswa.addEventListener("click", () => {
-        const file = fileNilai.files && fileNilai.files[0];
-        if (!file) {
-            alert("Pilih file CSV terlebih dahulu.");
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-            const text = reader.result;
-            const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-            if (lines.length <= 1) {
-                alert("File CSV kosong atau tidak ada data.");
-                return;
-            }
+  function selesaiUjian() {
+    window.onblur = null;
+    if (timerInterval) clearInterval(timerInterval);
+    timerArea.classList.add("hidden");
 
-            // header: Nama, Kelas, Predikat, Score, Status
-            const newData = [];
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(",");
-                if (cols.length < 5) continue;
-                const nama = cols[0].replace(/(^"|"$)/g, "").trim();
-                const kelas = cols[1].replace(/(^"|"$)/g, "").trim();
-                const predikat = cols[2].replace(/(^"|"$)/g, "").trim();
-                const score = cols[3].replace(/(^"|"$)/g, "").trim();
-                const status = cols[4].replace(/(^"|"$)/g, "").trim();
-                if (!nama) continue;
-                newData.push({ nama, kelas, predikat, score, status });
-            }
+    const nama = siswaNamaInput.value.trim();
+    const kelas = siswaKelasInput.value.trim();
+    let totalScore = 0;
+    let maxScore = 0;
 
-            // Tambahkan ke data existing (append, tidak replace)
-            dataNilai = dataNilai.concat(newData);
-            applyFilterNilai();
-            alert("Data nilai siswa berhasil ditambahkan ke daftar.");
-        };
-        reader.readAsText(file);
+    soalUjianAktif.forEach((soal, index) => {
+      maxScore += soal.score;
+      const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
+      let jawaban = -1;
+      radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
+      if (jawaban === soal.correctIndex) totalScore += soal.score;
     });
 
-    const btnDownloadDaftarNilaiCSV = document.getElementById("btnDownloadDaftarNilaiCSV");
-    const btnPrintDaftarNilaiPDF = document.getElementById("btnPrintDaftarNilaiPDF");
+    const persen = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+    let predikat = "Buruk";
+    if (persen >= 90) predikat = "Sangat Bagus";
+    else if (persen >= 75) predikat = "Bagus";
+    else if (persen >= 60) predikat = "Cukup";
+    const status = persen >= 70 ? "Tuntas" : "Remidi";
 
-    btnDownloadDaftarNilaiCSV.addEventListener("click", () => {
-        if (dataNilai.length === 0) {
-            alert("Belum ada data nilai siswa.");
-            return;
-        }
-        const header = ["Nama", "Kelas", "Predikat", "Score", "Status"];
-        const rows = [header].concat(
-            dataNilai.map(r => [r.nama, r.kelas, r.predikat, r.score, r.status])
-        );
-        const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
-        const a = document.createElement("a");
-        a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-        a.download = "daftar_nilai_siswa.csv";
-        a.click();
-    });
+    lastPercent = persen;        // angka 0–100
+    lastPredikatText = predikat; // teks
+    lastStatusText = status;     // Tuntas / Remidi
 
-    btnPrintDaftarNilaiPDF.addEventListener("click", () => {
-        if (dataNilai.length === 0) {
-            alert("Belum ada data nilai siswa untuk dicetak.");
-            return;
-        }
-        window.print();
-    });
+    hasilNama.textContent = nama;
+    hasilKelas.textContent = kelas;
+    hasilSkor.textContent = `${persen} (Skor ${totalScore} dari ${maxScore})`;
+    hasilPredikat.textContent = predikat;
+    hasilStatus.textContent = status;
 
-    /* ================== INISIALISASI SAAT LOAD ================== */
-    window.addEventListener("load", () => {
-        loadExamSettingsFromStorage();
-        loadHeaderSubtitleFromStorage();
-        loadKopFromStorage();
-        renderTabelSoal();
+    ujianArea.classList.add("hidden");
+    hasilArea.classList.remove("hidden");
+  }
+
+  // Download nilai siswa -> format benar: Nama, Kelas, Predikat, Score, Status
+  const btnDownloadNilai = document.getElementById("btnDownloadNilai");
+  btnDownloadNilai.addEventListener("click", () => {
+    const rows = [
+      ["Nama", "Kelas", "Predikat", "Score", "Status"],
+      [
+        hasilNama.textContent,
+        hasilKelas.textContent,
+        lastPredikatText,
+        lastPercent,
+        lastStatusText
+      ]
+    ];
+    const csvContent = rows
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+    a.download = "nilai_" + (hasilNama.textContent || "siswa") + ".csv";
+    a.click();
+  });
+
+  /* Rekap nilai */
+  const fileNilai = document.getElementById("fileNilai");
+  const btnTampilkanDaftarSiswa = document.getElementById("btnTampilkanDaftarSiswa");
+  const tabelNilaiBody = document.querySelector("#tabelNilai tbody");
+  const filterNama = document.getElementById("filterNama");
+  const filterKelas = document.getElementById("filterKelas");
+  const btnDownloadDaftarNilaiCSV = document.getElementById("btnDownloadDaftarNilaiCSV");
+  const btnPrintDaftarNilaiPDF = document.getElementById("btnPrintDaftarNilaiPDF");
+  let dataNilai = [];
+
+  function applyFilterNilai() {
+    const fNama = filterNama.value.trim().toLowerCase();
+    const fKelas = filterKelas.value.trim().toLowerCase();
+    tabelNilaiBody.innerHTML = "";
+    dataNilai.forEach(row => {
+      if (fNama && !row.nama.toLowerCase().includes(fNama)) return;
+      if (fKelas && !row.kelas.toLowerCase().includes(fKelas)) return;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.nama}</td>
+        <td>${row.kelas}</td>
+        <td>${row.predikat}</td>
+        <td>${row.score}</td>
+        <td>${row.status}</td>
+      `;
+      tabelNilaiBody.appendChild(tr);
     });
+  }
+  filterNama.addEventListener("input", applyFilterNilai);
+  filterKelas.addEventListener("input", applyFilterNilai);
+
+  btnTampilkanDaftarSiswa.addEventListener("click", () => {
+    const file = fileNilai.files && fileNilai.files[0];
+    if (!file) {
+      alert("Pilih file CSV terlebih dahulu.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result;
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (lines.length <= 1) {
+        alert("File CSV kosong atau tidak ada data.");
+        return;
+      }
+      const newData = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",");
+        if (cols.length < 5) continue;
+        const nama = cols[0].replace(/(^"|"$)/g, "").trim();
+        const kelas = cols[1].replace(/(^"|"$)/g, "").trim();
+        const predikat = cols[2].replace(/(^"|"$)/g, "").trim();
+        const score = cols[3].replace(/(^"|"$)/g, "").trim();
+        const status = cols[4].replace(/(^"|"$)/g, "").trim();
+        if (!nama) continue;
+        newData.push({ nama, kelas, predikat, score, status });
+      }
+      dataNilai = dataNilai.concat(newData);
+      applyFilterNilai();
+      alert("Data nilai siswa berhasil ditambahkan.");
+    };
+    reader.readAsText(file);
+  });
+
+  btnDownloadDaftarNilaiCSV.addEventListener("click", () => {
+    if (dataNilai.length === 0) {
+      alert("Belum ada data nilai.");
+      return;
+    }
+    const header = ["Nama", "Kelas", "Predikat", "Score", "Status"];
+    const rows = [header].concat(
+      dataNilai.map(r => [r.nama, r.kelas, r.predikat, r.score, r.status])
+    );
+    const csvContent = rows
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+    a.download = "daftar_nilai_siswa.csv";
+    a.click();
+  });
+
+  btnPrintDaftarNilaiPDF.addEventListener("click", () => {
+    if (dataNilai.length === 0) {
+      alert("Belum ada data nilai untuk dicetak.");
+      return;
+    }
+    window.print();
+  });
+
+  /* Init */
+  window.addEventListener("load", () => {
+    loadExamSettingsFromStorage();
+    loadHeaderSubtitleFromStorage();
+    loadKopFromStorage();
+    renderTabelSoal();
+    showSectionSiswa();
+  });
 </script>
 </body>
 </html>
