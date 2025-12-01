@@ -188,14 +188,9 @@
       font-style: italic;
     }
 
-    /* CETAK PDF: hanya kop + tabel nilai yang terlihat */
     @media print {
-      body * {
-        visibility: hidden;
-      }
-      #daftarNilaiArea, #daftarNilaiArea * {
-        visibility: visible;
-      }
+      body * { visibility: hidden; }
+      #daftarNilaiArea, #daftarNilaiArea * { visibility: visible; }
       #daftarNilaiArea {
         position: absolute;
         left: 0;
@@ -206,9 +201,7 @@
         box-shadow: none;
         border: none;
       }
-      .watermark-global {
-        display: none !important;
-      }
+      .watermark-global { display: none !important; }
     }
   </style>
 </head>
@@ -984,7 +977,7 @@
   // simpan hasil ke Firestore
   async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status) {
     try {
-      if (!currentExamCodeForResult) return; // kalau tidak ada kode ujian, jangan simpan
+      if (!currentExamCodeForResult) return;
       await db.collection("results").add({
         examCode: currentExamCodeForResult,
         examName: currentExamName || "",
@@ -1032,7 +1025,6 @@
     lastPredikatText = predikat;
     lastStatusText = status;
 
-    // simpan ke Firestore
     simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status);
 
     hasilNama.textContent = nama;
@@ -1161,7 +1153,7 @@
     window.print();
   });
 
-  // muat nilai otomatis dari Firestore
+  // muat nilai otomatis dari Firestore (TANPA orderBy)
   btnMuatNilaiDariDB.addEventListener("click", async () => {
     const { code } = getExamSettings();
     const user = auth.currentUser;
@@ -1179,7 +1171,6 @@
       const snap = await db.collection("results")
         .where("examCode", "==", code)
         .where("ownerUid", "==", user.uid)
-        .orderBy("createdAt", "asc")
         .get();
 
       const newData = [];
@@ -1196,9 +1187,14 @@
 
       dataNilai = newData;
       applyFilterNilai();
-      alert("Nilai siswa berhasil dimuat dari database.");
+
+      if (newData.length === 0) {
+        alert("Belum ada hasil siswa di database untuk kode ujian ini.");
+      } else {
+        alert("Nilai siswa berhasil dimuat dari database.");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Error saat memuat nilai:", err);
       alert("Gagal memuat nilai dari database.");
     }
   });
