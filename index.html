@@ -392,16 +392,17 @@
 
     <!-- Rekap di panel guru -->
     <div class="card mt-3">
-      <h3>Rekap Nilai (Upload CSV)</h3>
+      <h3>Rekap Nilai (Upload CSV / Otomatis)</h3>
       <p style="font-size:13px;">
-        Format CSV: <b>Nama, Kelas, Predikat, Score, Status</b>.
+        Format CSV: <b>Nama, Kelas, Predikat, Score, Status</b>.<br/>
+        Nilai juga bisa dimuat otomatis dari database (Firestore).
       </p>
       <div class="flex">
         <div class="flex-1">
           <input type="file" id="fileNilai" accept=".csv" />
         </div>
         <div class="flex-1">
-          <button class="btn btn-primary" id="btnTampilkanDaftarSiswa">Tampilkan Daftar Siswa</button>
+          <button class="btn btn-primary" id="btnTampilkanDaftarSiswa">Tampilkan Daftar Siswa (CSV)</button>
         </div>
       </div>
 
@@ -438,6 +439,7 @@
       <div class="mt-2">
         <button class="btn btn-primary" id="btnDownloadDaftarNilaiCSV">Download Daftar Nilai (CSV)</button>
         <button class="btn btn-secondary" id="btnPrintDaftarNilaiPDF">Download Daftar Nilai (PDF)</button>
+        <button class="btn btn-primary" id="btnMuatNilaiDariDB">Muat Nilai dari Database</button>
       </div>
     </div>
   </section>
@@ -472,6 +474,7 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
+  /* ---- Soal default ---- */
   const defaultSoalList = [
     {
       text: "How are you today?",
@@ -501,7 +504,12 @@
   }
   let soalList = normalizeSoalList(defaultSoalList);
 
-  /* Mode & section */
+  /* ---- State exam untuk simpan hasil ---- */
+  let currentExamCodeForResult = null;
+  let currentExamOwnerUid = null;
+  let currentExamName = null;
+
+  /* ---- Mode & section ---- */
   const btnModeSiswa = document.getElementById("btnModeSiswa");
   const btnModeGuru = document.getElementById("btnModeGuru");
   const btnModeRekap = document.getElementById("btnModeRekap");
@@ -550,7 +558,7 @@
   btnModeGuru.addEventListener("click", showSectionGuru);
   btnModeRekap.addEventListener("click", showSectionRekap);
 
-  /* Login guru */
+  /* ---- Login guru ---- */
   const btnLoginGuru = document.getElementById("btnLoginGuru");
   const loginError = document.getElementById("loginError");
   const btnLogoutGuru = document.getElementById("btnLogoutGuru");
@@ -600,7 +608,7 @@
     }
   });
 
-  /* Pengaturan ujian */
+  /* ---- Pengaturan ujian ---- */
   const examNameInput = document.getElementById("examNameInput");
   const examCodeInput = document.getElementById("examCodeInput");
   const examDurationInput = document.getElementById("examDurationInput");
@@ -694,7 +702,7 @@
     }
   });
 
-  /* Header & kop */
+  /* ---- Header & kop ---- */
   const headerSubtitleInput = document.getElementById("headerSubtitleInput");
   const btnSimpanHeader = document.getElementById("btnSimpanHeader");
   btnSimpanHeader.addEventListener("click", () => {
@@ -733,7 +741,7 @@
     kopSubtitleView.textContent = s;
   }
 
-  /* Kelola soal guru */
+  /* ---- Kelola soal guru ---- */
   const soalText = document.getElementById("soalText");
   const pilihan1 = document.getElementById("pilihan1");
   const pilihan2 = document.getElementById("pilihan2");
@@ -854,7 +862,7 @@
     reader.readAsText(file);
   });
 
-  /* Mode siswa: ujian */
+  /* ---- Mode siswa: ujian ---- */
   const siswaNamaInput = document.getElementById("siswaNama");
   const siswaKelasInput = document.getElementById("siswaKelas");
   const siswaExamCodeInput = document.getElementById("siswaExamCode");
@@ -944,6 +952,12 @@
       const data = docSnap.data();
       examNameViewSiswa.textContent = data.name || "Ujian";
       examDurationViewSiswa.textContent = data.duration || 0;
+
+      // simpan info untuk hasil
+      currentExamCodeForResult = kode;
+      currentExamOwnerUid = data.ownerUid || null;
+      currentExamName = data.name || "";
+
       soalUjianAktif = normalizeSoalList(data.soalList || []);
       if (soalUjianAktif.length === 0) {
         alert("Belum ada soal pada ujian ini.");
@@ -966,6 +980,28 @@
     if (!confirm("Selesaikan ujian sekarang?")) return;
     selesaiUjian();
   });
+
+  // simpan hasil ke Firestore
+  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status) {
+    try {
+      if (!currentExamCodeForResult) return; // kalau tidak ada kode ujian, jangan simpan
+      await db.collection("results").add({
+        examCode: currentExamCodeForResult,
+        examName: currentExamName || "",
+        ownerUid: currentExamOwnerUid || null,
+        studentName: nama,
+        studentClass: kelas,
+        percent: persen,
+        rawScore: totalScore,
+        maxScore: maxScore,
+        predikat: predikat,
+        status: status,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Gagal simpan hasil ke Firestore:", err);
+    }
+  }
 
   function selesaiUjian() {
     window.onblur = null;
@@ -992,9 +1028,12 @@
     else if (persen >= 60) predikat = "Cukup";
     const status = persen >= 70 ? "Tuntas" : "Remidi";
 
-    lastPercent = persen;        // angka 0–100
-    lastPredikatText = predikat; // teks
-    lastStatusText = status;     // Tuntas / Remidi
+    lastPercent = persen;
+    lastPredikatText = predikat;
+    lastStatusText = status;
+
+    // simpan ke Firestore
+    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status);
 
     hasilNama.textContent = nama;
     hasilKelas.textContent = kelas;
@@ -1006,7 +1045,7 @@
     hasilArea.classList.remove("hidden");
   }
 
-  // Download nilai siswa -> format benar: Nama, Kelas, Predikat, Score, Status
+  // Download nilai siswa -> CSV: Nama, Kelas, Predikat, Score, Status
   const btnDownloadNilai = document.getElementById("btnDownloadNilai");
   btnDownloadNilai.addEventListener("click", () => {
     const rows = [
@@ -1028,7 +1067,7 @@
     a.click();
   });
 
-  /* Rekap nilai */
+  /* ---- Rekap nilai ---- */
   const fileNilai = document.getElementById("fileNilai");
   const btnTampilkanDaftarSiswa = document.getElementById("btnTampilkanDaftarSiswa");
   const tabelNilaiBody = document.querySelector("#tabelNilai tbody");
@@ -1036,6 +1075,7 @@
   const filterKelas = document.getElementById("filterKelas");
   const btnDownloadDaftarNilaiCSV = document.getElementById("btnDownloadDaftarNilaiCSV");
   const btnPrintDaftarNilaiPDF = document.getElementById("btnPrintDaftarNilaiPDF");
+  const btnMuatNilaiDariDB = document.getElementById("btnMuatNilaiDariDB");
   let dataNilai = [];
 
   function applyFilterNilai() {
@@ -1059,6 +1099,7 @@
   filterNama.addEventListener("input", applyFilterNilai);
   filterKelas.addEventListener("input", applyFilterNilai);
 
+  // dari CSV
   btnTampilkanDaftarSiswa.addEventListener("click", () => {
     const file = fileNilai.files && fileNilai.files[0];
     if (!file) {
@@ -1087,11 +1128,12 @@
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
-      alert("Data nilai siswa berhasil ditambahkan.");
+      alert("Data nilai siswa dari CSV berhasil ditambahkan.");
     };
     reader.readAsText(file);
   });
 
+  // download rekap CSV
   btnDownloadDaftarNilaiCSV.addEventListener("click", () => {
     if (dataNilai.length === 0) {
       alert("Belum ada data nilai.");
@@ -1110,6 +1152,7 @@
     a.click();
   });
 
+  // download PDF
   btnPrintDaftarNilaiPDF.addEventListener("click", () => {
     if (dataNilai.length === 0) {
       alert("Belum ada data nilai untuk dicetak.");
@@ -1118,7 +1161,49 @@
     window.print();
   });
 
-  /* Init */
+  // muat nilai otomatis dari Firestore
+  btnMuatNilaiDariDB.addEventListener("click", async () => {
+    const { code } = getExamSettings();
+    const user = auth.currentUser;
+
+    if (!code) {
+      alert("Isi kode ujian di Pengaturan Ujian terlebih dahulu.");
+      return;
+    }
+    if (!user) {
+      alert("Guru belum login.");
+      return;
+    }
+
+    try {
+      const snap = await db.collection("results")
+        .where("examCode", "==", code)
+        .where("ownerUid", "==", user.uid)
+        .orderBy("createdAt", "asc")
+        .get();
+
+      const newData = [];
+      snap.forEach(doc => {
+        const d = doc.data();
+        newData.push({
+          nama: d.studentName || "",
+          kelas: d.studentClass || "",
+          predikat: d.predikat || "",
+          score: typeof d.percent === "number" ? d.percent : "",
+          status: d.status || ""
+        });
+      });
+
+      dataNilai = newData;
+      applyFilterNilai();
+      alert("Nilai siswa berhasil dimuat dari database.");
+    } catch (err) {
+      console.error(err);
+      alert("Gagal memuat nilai dari database.");
+    }
+  });
+
+  /* ---- Init ---- */
   window.addEventListener("load", () => {
     loadExamSettingsFromStorage();
     loadHeaderSubtitleFromStorage();
