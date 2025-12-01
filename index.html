@@ -295,7 +295,7 @@
         <button class="btn btn-secondary btn-sm" id="btnLogoutGuru">Logout</button>
       </div>
       <div class="info-box">
-        Ujian dan bank soal disimpan di Firestore per kode ujian. Guru lain tidak dapat menimpa ujian guru ini.
+        Ujian dan bank soal disimpan di Firestore per kode ujian dan akun guru.
       </div>
     </div>
 
@@ -573,7 +573,10 @@
       adminUserInput.value = "";
       adminPassInput.value = "";
       showSectionGuru();
+      // soalList dikosongkan supaya tidak bawa soal guru lain
+      soalList = [];
       renderTabelSoal();
+      resetFormSoal();
       loadExamSettingsFromStorage();
       loadHeaderSubtitleFromStorage();
       loadKopFromStorage();
@@ -596,6 +599,10 @@
   auth.onAuthStateChanged(user => {
     if (user) {
       adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
+      // Saat guru berganti, kosongkan daftar soal supaya tidak campur
+      soalList = [];
+      renderTabelSoal();
+      resetFormSoal();
     } else {
       adminInfoText.textContent = "Belum login.";
     }
@@ -641,6 +648,7 @@
     alert("Pengaturan ujian disimpan di browser. Klik 'Simpan Ujian + Soal ke Database' untuk mengirim ke Firestore.");
   });
 
+  // SIMPAN UJIAN + SOAL KE DATABASE (per guru)
   btnSaveExamDb.addEventListener("click", async () => {
     const { name, code, duration } = getExamSettings();
     if (!name || !code) {
@@ -658,9 +666,12 @@
       duration,
       soalList,
       ownerUid: user.uid,
-      ownerEmail: user.email || ""
+      ownerEmail: user.email || "",
+      teacherId: user.uid,          // untuk rules baru
+      teacherEmail: user.email || ""
     };
     try {
+      // doc ID = kode ujian (unik per ujian)
       await db.collection("exams").doc(code).set(data);
       alert("Ujian & bank soal berhasil disimpan ke Firestore dengan kode: " + code);
     } catch (e) {
@@ -669,29 +680,43 @@
     }
   });
 
+  // AMBIL UJIAN DARI DATABASE (hanya ujian milik guru login)
   btnLoadExamDb.addEventListener("click", async () => {
     const code = examCodeInput.value.trim();
+    const user = auth.currentUser;
     if (!code) {
       alert("Isi kode ujian terlebih dahulu.");
       return;
     }
+    if (!user) {
+      alert("Guru belum login.");
+      return;
+    }
     try {
-      const docSnap = await db.collection("exams").doc(code).get();
+      const docRef = db.collection("exams").doc(code);
+      const docSnap = await docRef.get();
       if (!docSnap.exists) {
         alert("Ujian dengan kode tersebut tidak ditemukan.");
         return;
       }
       const data = docSnap.data();
+
+      // Cek kepemilikan di sisi client, untuk memperjelas bagi guru
+      if (data.teacherId && data.teacherId !== user.uid) {
+        alert("Kode ujian ini dimiliki guru lain. Silakan gunakan kode ujian milik akun Anda.");
+        return;
+      }
+
       examNameInput.value = data.name || "";
       examDurationInput.value = data.duration || 60;
       examNameViewSiswa.textContent = data.name || "";
       examDurationViewSiswa.textContent = data.duration || 0;
       soalList = normalizeSoalList(data.soalList || []);
       renderTabelSoal();
-      alert("Ujian & bank soal berhasil dimuat dari Firestore.");
+      alert("Ujian & bank soal milik akun ini berhasil dimuat dari Firestore.");
     } catch (e) {
       console.error(e);
-      alert("Gagal mengambil dari Firestore.");
+      alert("Gagal mengambil ujian dari Firestore. Periksa rules atau koneksi.");
     }
   });
 
@@ -948,7 +973,7 @@
 
       // simpan info untuk hasil
       currentExamCodeForResult = kode;
-      currentExamOwnerUid = data.ownerUid || null;
+      currentExamOwnerUid = data.ownerUid || data.teacherId || null;
       currentExamName = data.name || "";
 
       soalUjianAktif = normalizeSoalList(data.soalList || []);
