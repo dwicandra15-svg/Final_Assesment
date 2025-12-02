@@ -423,6 +423,7 @@
               <th>Predikat</th>
               <th>Score</th>
               <th>Status</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -928,6 +929,7 @@
     });
   }
 
+  // siswa mulai ujian
   btnMulaiUjian.addEventListener("click", async () => {
     const nama = siswaNamaInput.value.trim();
     const kelas = siswaKelasInput.value.trim();
@@ -936,6 +938,27 @@
       alert("Nama, kelas, dan kode ujian wajib diisi.");
       return;
     }
+
+    // CEK: nama + kelas + kode ujian sudah pernah submit atau belum
+    try {
+      const cekSnap = await db.collection("results")
+        .where("examCode", "==", kode)
+        .where("studentName", "==", nama)
+        .where("studentClass", "==", kelas)
+        .limit(1)
+        .get();
+
+      if (!cekSnap.empty) {
+        alert("Nama ini sudah pernah mengerjakan ujian dengan kode ini.\n" +
+              "Setiap siswa hanya boleh 1 kali kesempatan.");
+        return;
+      }
+    } catch (err) {
+      console.error("Gagal cek hasil sebelumnya:", err);
+      alert("Terjadi kesalahan saat pengecekan data. Coba beberapa saat lagi.");
+      return;
+    }
+
     try {
       const docSnap = await db.collection("exams").doc(kode).get();
       if (!docSnap.exists) {
@@ -946,6 +969,7 @@
       examNameViewSiswa.textContent = data.name || "Ujian";
       examDurationViewSiswa.textContent = data.duration || 0;
 
+      // simpan info untuk hasil
       currentExamCodeForResult = kode;
       currentExamOwnerUid = data.ownerUid || null;
       currentExamName = data.name || "";
@@ -973,7 +997,8 @@
     selesaiUjian();
   });
 
-  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status) {
+  // simpan hasil ke Firestore (sudah menyimpan detail jawaban per soal)
+  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, detailJawaban) {
     try {
       if (!currentExamCodeForResult) return;
       await db.collection("results").add({
@@ -987,6 +1012,8 @@
         maxScore: maxScore,
         predikat: predikat,
         status: status,
+        answers: detailJawaban || [],      // <-- struktur dasar analisis butir soal
+        questionCount: soalUjianAktif.length || 0,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (err) {
@@ -1003,13 +1030,24 @@
     const kelas = siswaKelasInput.value.trim();
     let totalScore = 0;
     let maxScore = 0;
+    const detailJawaban = [];
 
     soalUjianAktif.forEach((soal, index) => {
       maxScore += soal.score;
       const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
       let jawaban = -1;
       radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
-      if (jawaban === soal.correctIndex) totalScore += soal.score;
+      const benar = (jawaban === soal.correctIndex);
+      if (benar) totalScore += soal.score;
+
+      // simpan detail untuk analisis butir soal
+      detailJawaban.push({
+        index: index,
+        chosen: jawaban,
+        correctIndex: soal.correctIndex,
+        score: soal.score,
+        isCorrect: benar
+      });
     });
 
     const persen = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
@@ -1023,7 +1061,7 @@
     lastPredikatText = predikat;
     lastStatusText = status;
 
-    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status);
+    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, detailJawaban);
 
     hasilNama.textContent = nama;
     hasilKelas.textContent = kelas;
@@ -1035,6 +1073,7 @@
     hasilArea.classList.remove("hidden");
   }
 
+  // Download nilai siswa -> CSV: Nama, Kelas, Predikat, Score, Status
   const btnDownloadNilai = document.getElementById("btnDownloadNilai");
   btnDownloadNilai.addEventListener("click", () => {
     const rows = [
@@ -1067,13 +1106,36 @@
   const btnMuatNilaiDariDB = document.getElementById("btnMuatNilaiDariDB");
   let dataNilai = [];
 
+  // hapus nilai 1 baris
+  async function deleteNilai(index) {
+    const row = dataNilai[index];
+    if (!row) return;
+    if (!confirm(`Hapus nilai siswa "${row.nama}" kelas "${row.kelas}"?`)) return;
+
+    // kalau ada id Firestore → hapus di server
+    if (row.id) {
+      try {
+        await db.collection("results").doc(row.id).delete();
+      } catch (err) {
+        console.error("Gagal menghapus di Firestore:", err);
+        alert("Gagal menghapus dari database, tapi akan dihapus dari tabel sementara.");
+      }
+    }
+
+    // hapus dari array lokal
+    dataNilai.splice(index, 1);
+    applyFilterNilai();
+  }
+
   function applyFilterNilai() {
     const fNama = filterNama.value.trim().toLowerCase();
     const fKelas = filterKelas.value.trim().toLowerCase();
     tabelNilaiBody.innerHTML = "";
-    dataNilai.forEach(row => {
+
+    dataNilai.forEach((row, idx) => {
       if (fNama && !row.nama.toLowerCase().includes(fNama)) return;
       if (fKelas && !row.kelas.toLowerCase().includes(fKelas)) return;
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${row.nama}</td>
@@ -1081,13 +1143,23 @@
         <td>${row.predikat}</td>
         <td>${row.score}</td>
         <td>${row.status}</td>
+        <td><button class="btn btn-danger btn-sm" data-idx="${idx}">Hapus</button></td>
       `;
       tabelNilaiBody.appendChild(tr);
+    });
+
+    // pasang event ke tombol hapus
+    tabelNilaiBody.querySelectorAll("button[data-idx]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.dataset.idx, 10);
+        deleteNilai(i);
+      });
     });
   }
   filterNama.addEventListener("input", applyFilterNilai);
   filterKelas.addEventListener("input", applyFilterNilai);
 
+  // dari CSV
   btnTampilkanDaftarSiswa.addEventListener("click", () => {
     const file = fileNilai.files && fileNilai.files[0];
     if (!file) {
@@ -1112,7 +1184,7 @@
         const score = cols[3].replace(/(^"|"$)/g, "").trim();
         const status = cols[4].replace(/(^"|"$)/g, "").trim();
         if (!nama) continue;
-        newData.push({ nama, kelas, predikat, score, status });
+        newData.push({ id: null, nama, kelas, predikat, score, status }); // id:null karena bukan dari Firestore
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
@@ -1121,6 +1193,7 @@
     reader.readAsText(file);
   });
 
+  // download rekap CSV
   btnDownloadDaftarNilaiCSV.addEventListener("click", () => {
     if (dataNilai.length === 0) {
       alert("Belum ada data nilai.");
@@ -1139,6 +1212,7 @@
     a.click();
   });
 
+  // download PDF
   btnPrintDaftarNilaiPDF.addEventListener("click", () => {
     if (dataNilai.length === 0) {
       alert("Belum ada data nilai untuk dicetak.");
@@ -1147,6 +1221,7 @@
     window.print();
   });
 
+  // muat nilai otomatis dari Firestore
   btnMuatNilaiDariDB.addEventListener("click", async () => {
     const { code } = getExamSettings();
     const user = auth.currentUser;
@@ -1170,6 +1245,7 @@
       snap.forEach(doc => {
         const d = doc.data();
         newData.push({
+          id: doc.id,
           nama: d.studentName || "",
           kelas: d.studentClass || "",
           predikat: d.predikat || "",
@@ -1192,6 +1268,7 @@
     }
   });
 
+  /* ---- Init ---- */
   window.addEventListener("load", () => {
     loadExamSettingsFromStorage();
     loadHeaderSubtitleFromStorage();
