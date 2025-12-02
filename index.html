@@ -271,7 +271,7 @@
     <div class="card">
       <h2>Login Guru (Admin)</h2>
       <div class="info-box">
-        Login menggunakan email & password yang sudah didaftarkan di Firebase Authentication.
+        Login menggunakan email &amp; password yang sudah didaftarkan di Firebase Authentication.
       </div>
       <label>Email</label>
       <input type="text" id="adminUser" />
@@ -423,7 +423,6 @@
               <th>Predikat</th>
               <th>Score</th>
               <th>Status</th>
-              <th>Aksi</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -559,48 +558,6 @@
   const adminUserInput = document.getElementById("adminUser");
   const adminPassInput = document.getElementById("adminPass");
   const adminInfoText = document.getElementById("adminInfoText");
-
-  btnLoginGuru.addEventListener("click", async () => {
-    const email = adminUserInput.value.trim();
-    const pass = adminPassInput.value.trim();
-    if (!email || !pass) {
-      loginError.textContent = "Email dan password wajib diisi.";
-      loginError.classList.remove("hidden");
-      return;
-    }
-    try {
-      await auth.signInWithEmailAndPassword(email, pass);
-      loginError.classList.add("hidden");
-      adminUserInput.value = "";
-      adminPassInput.value = "";
-      showSectionGuru();
-      renderTabelSoal();
-      loadExamSettingsFromStorage();
-      loadHeaderSubtitleFromStorage();
-      loadKopFromStorage();
-    } catch (err) {
-      console.error(err);
-      let msg = "Login gagal. ";
-      if (err.code === "auth/user-not-found") msg += "Akun tidak ditemukan.";
-      else if (err.code === "auth/wrong-password") msg += "Password salah.";
-      else msg += err.message;
-      loginError.textContent = msg;
-      loginError.classList.remove("hidden");
-    }
-  });
-
-  btnLogoutGuru.addEventListener("click", async () => {
-    try { await auth.signOut(); } catch (e) {}
-    showSectionSiswa();
-  });
-
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
-    } else {
-      adminInfoText.textContent = "Belum login.";
-    }
-  });
 
   /* ---- Pengaturan ujian ---- */
   const examNameInput = document.getElementById("examNameInput");
@@ -785,6 +742,23 @@
       });
     });
   }
+
+  // ---- Reset panel guru ketika ganti akun ----
+  function resetGuruPanelForNewUser() {
+    // kosongkan bank soal di memori & tabel
+    soalList = [];
+    renderTabelSoal();
+
+    // kosongkan pengaturan ujian
+    examNameInput.value = "";
+    examCodeInput.value = "";
+    examDurationInput.value = "60";
+
+    // info ujian di Mode Siswa juga diset default
+    examNameViewSiswa.textContent = "Belum diatur";
+    examDurationViewSiswa.textContent = "0";
+  }
+
   function editSoal(index) {
     const s = soalList[index];
     editIndexInput.value = String(index);
@@ -929,7 +903,6 @@
     });
   }
 
-  // siswa mulai ujian
   btnMulaiUjian.addEventListener("click", async () => {
     const nama = siswaNamaInput.value.trim();
     const kelas = siswaKelasInput.value.trim();
@@ -938,27 +911,6 @@
       alert("Nama, kelas, dan kode ujian wajib diisi.");
       return;
     }
-
-    // CEK: nama + kelas + kode ujian sudah pernah submit atau belum
-    try {
-      const cekSnap = await db.collection("results")
-        .where("examCode", "==", kode)
-        .where("studentName", "==", nama)
-        .where("studentClass", "==", kelas)
-        .limit(1)
-        .get();
-
-      if (!cekSnap.empty) {
-        alert("Nama ini sudah pernah mengerjakan ujian dengan kode ini.\n" +
-              "Setiap siswa hanya boleh 1 kali kesempatan.");
-        return;
-      }
-    } catch (err) {
-      console.error("Gagal cek hasil sebelumnya:", err);
-      alert("Terjadi kesalahan saat pengecekan data. Coba beberapa saat lagi.");
-      return;
-    }
-
     try {
       const docSnap = await db.collection("exams").doc(kode).get();
       if (!docSnap.exists) {
@@ -997,8 +949,8 @@
     selesaiUjian();
   });
 
-  // simpan hasil ke Firestore (sudah menyimpan detail jawaban per soal)
-  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, detailJawaban) {
+  // simpan hasil ke Firestore
+  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status) {
     try {
       if (!currentExamCodeForResult) return;
       await db.collection("results").add({
@@ -1012,8 +964,6 @@
         maxScore: maxScore,
         predikat: predikat,
         status: status,
-        answers: detailJawaban || [],      // <-- struktur dasar analisis butir soal
-        questionCount: soalUjianAktif.length || 0,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (err) {
@@ -1030,24 +980,13 @@
     const kelas = siswaKelasInput.value.trim();
     let totalScore = 0;
     let maxScore = 0;
-    const detailJawaban = [];
 
     soalUjianAktif.forEach((soal, index) => {
       maxScore += soal.score;
       const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
       let jawaban = -1;
       radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
-      const benar = (jawaban === soal.correctIndex);
-      if (benar) totalScore += soal.score;
-
-      // simpan detail untuk analisis butir soal
-      detailJawaban.push({
-        index: index,
-        chosen: jawaban,
-        correctIndex: soal.correctIndex,
-        score: soal.score,
-        isCorrect: benar
-      });
+      if (jawaban === soal.correctIndex) totalScore += soal.score;
     });
 
     const persen = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
@@ -1061,7 +1000,7 @@
     lastPredikatText = predikat;
     lastStatusText = status;
 
-    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, detailJawaban);
+    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status);
 
     hasilNama.textContent = nama;
     hasilKelas.textContent = kelas;
@@ -1106,36 +1045,13 @@
   const btnMuatNilaiDariDB = document.getElementById("btnMuatNilaiDariDB");
   let dataNilai = [];
 
-  // hapus nilai 1 baris
-  async function deleteNilai(index) {
-    const row = dataNilai[index];
-    if (!row) return;
-    if (!confirm(`Hapus nilai siswa "${row.nama}" kelas "${row.kelas}"?`)) return;
-
-    // kalau ada id Firestore → hapus di server
-    if (row.id) {
-      try {
-        await db.collection("results").doc(row.id).delete();
-      } catch (err) {
-        console.error("Gagal menghapus di Firestore:", err);
-        alert("Gagal menghapus dari database, tapi akan dihapus dari tabel sementara.");
-      }
-    }
-
-    // hapus dari array lokal
-    dataNilai.splice(index, 1);
-    applyFilterNilai();
-  }
-
   function applyFilterNilai() {
     const fNama = filterNama.value.trim().toLowerCase();
     const fKelas = filterKelas.value.trim().toLowerCase();
     tabelNilaiBody.innerHTML = "";
-
-    dataNilai.forEach((row, idx) => {
+    dataNilai.forEach(row => {
       if (fNama && !row.nama.toLowerCase().includes(fNama)) return;
       if (fKelas && !row.kelas.toLowerCase().includes(fKelas)) return;
-
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${row.nama}</td>
@@ -1143,17 +1059,8 @@
         <td>${row.predikat}</td>
         <td>${row.score}</td>
         <td>${row.status}</td>
-        <td><button class="btn btn-danger btn-sm" data-idx="${idx}">Hapus</button></td>
       `;
       tabelNilaiBody.appendChild(tr);
-    });
-
-    // pasang event ke tombol hapus
-    tabelNilaiBody.querySelectorAll("button[data-idx]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const i = parseInt(btn.dataset.idx, 10);
-        deleteNilai(i);
-      });
     });
   }
   filterNama.addEventListener("input", applyFilterNilai);
@@ -1184,7 +1091,7 @@
         const score = cols[3].replace(/(^"|"$)/g, "").trim();
         const status = cols[4].replace(/(^"|"$)/g, "").trim();
         if (!nama) continue;
-        newData.push({ id: null, nama, kelas, predikat, score, status }); // id:null karena bukan dari Firestore
+        newData.push({ nama, kelas, predikat, score, status });
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
@@ -1245,7 +1152,6 @@
       snap.forEach(doc => {
         const d = doc.data();
         newData.push({
-          id: doc.id,
           nama: d.studentName || "",
           kelas: d.studentClass || "",
           predikat: d.predikat || "",
@@ -1265,6 +1171,54 @@
     } catch (err) {
       console.error("Error saat memuat nilai:", err);
       alert("Gagal memuat nilai dari database.");
+    }
+  });
+
+  /* ---- Login / Logout guru ---- */
+
+  btnLoginGuru.addEventListener("click", async () => {
+    const email = adminUserInput.value.trim();
+    const pass = adminPassInput.value.trim();
+    if (!email || !pass) {
+      loginError.textContent = "Email dan password wajib diisi.";
+      loginError.classList.remove("hidden");
+      return;
+    }
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+      loginError.classList.add("hidden");
+      adminUserInput.value = "";
+      adminPassInput.value = "";
+
+      // reset panel setiap kali login guru
+      resetGuruPanelForNewUser();
+
+      showSectionGuru();
+      loadHeaderSubtitleFromStorage();
+      loadKopFromStorage();
+    } catch (err) {
+      console.error(err);
+      let msg = "Login gagal. ";
+      if (err.code === "auth/user-not-found") msg += "Akun tidak ditemukan.";
+      else if (err.code === "auth/wrong-password") msg += "Password salah.";
+      else msg += err.message;
+      loginError.textContent = msg;
+      loginError.classList.remove("hidden");
+    }
+  });
+
+  btnLogoutGuru.addEventListener("click", async () => {
+    try { await auth.signOut(); } catch (e) {}
+    showSectionSiswa();
+  });
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
+      // jika user berubah (logout -> login user lain), pastikan panel bersih
+      resetGuruPanelForNewUser();
+    } else {
+      adminInfoText.textContent = "Belum login.";
     }
   });
 
