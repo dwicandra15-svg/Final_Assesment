@@ -423,6 +423,29 @@
               <th>Predikat</th>
               <th>Score</th>
               <th>Status</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Detail jawaban per siswa -->
+      <div class="mt-3 hidden" id="detailJawaban">
+        <h4>Detail Jawaban Siswa</h4>
+        <p style="font-size:13px;">
+          <b>Nama:</b> <span id="detailNama"></span> |
+          <b>Kelas:</b> <span id="detailKelas"></span> |
+          <b>Kode Ujian:</b> <span id="detailKode"></span>
+        </p>
+        <table id="tabelDetailJawaban">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Soal</th>
+              <th>Jawaban Siswa</th>
+              <th>Kunci</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -496,6 +519,7 @@
     });
   }
   let soalList = normalizeSoalList(defaultSoalList);
+  let soalListForDetail = []; // untuk lihat jawaban siswa
 
   /* ---- State exam untuk simpan hasil ---- */
   let currentExamCodeForResult = null;
@@ -645,6 +669,7 @@
       examNameViewSiswa.textContent = data.name || "";
       examDurationViewSiswa.textContent = data.duration || 0;
       soalList = normalizeSoalList(data.soalList || []);
+      soalListForDetail = soalList.slice();
       renderTabelSoal();
       alert("Ujian & bank soal berhasil dimuat dari Firestore.");
     } catch (e) {
@@ -743,20 +768,16 @@
     });
   }
 
-  // ---- Reset panel guru ketika ganti akun ----
+  // Reset panel guru ketika ganti akun
   function resetGuruPanelForNewUser() {
-    // kosongkan bank soal di memori & tabel
     soalList = [];
     renderTabelSoal();
-
-    // kosongkan pengaturan ujian
     examNameInput.value = "";
     examCodeInput.value = "";
     examDurationInput.value = "60";
-
-    // info ujian di Mode Siswa juga diset default
     examNameViewSiswa.textContent = "Belum diatur";
     examDurationViewSiswa.textContent = "0";
+    soalListForDetail = [];
   }
 
   function editSoal(index) {
@@ -798,6 +819,7 @@
     const idx = parseInt(editIndexInput.value, 10);
     if (!isNaN(idx) && idx >= 0) soalList[idx] = newSoal;
     else soalList.push(newSoal);
+    soalListForDetail = soalList.slice();
     renderTabelSoal();
     resetFormSoal();
     alert("Soal disimpan. Jika final, klik 'Simpan Ujian + Soal ke Database'.");
@@ -821,6 +843,7 @@
       try {
         const parsed = JSON.parse(reader.result);
         soalList = normalizeSoalList(parsed);
+        soalListForDetail = soalList.slice();
         renderTabelSoal();
         alert("Bank soal berhasil diimpor.");
       } catch {
@@ -925,8 +948,9 @@
       currentExamCodeForResult = kode;
       currentExamOwnerUid = data.ownerUid || null;
       currentExamName = data.name || "";
-
       soalUjianAktif = normalizeSoalList(data.soalList || []);
+      soalListForDetail = soalUjianAktif.slice();
+
       if (soalUjianAktif.length === 0) {
         alert("Belum ada soal pada ujian ini.");
         return;
@@ -949,8 +973,10 @@
     selesaiUjian();
   });
 
-  // simpan hasil ke Firestore
-  async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status) {
+  // simpan hasil ke Firestore (sekarang menyimpan answers)
+  async function simpanHasilKeFirestore(
+    nama, kelas, persen, totalScore, maxScore, predikat, status, answers
+  ) {
     try {
       if (!currentExamCodeForResult) return;
       await db.collection("results").add({
@@ -964,6 +990,7 @@
         maxScore: maxScore,
         predikat: predikat,
         status: status,
+        answers: answers || [],
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (err) {
@@ -980,12 +1007,14 @@
     const kelas = siswaKelasInput.value.trim();
     let totalScore = 0;
     let maxScore = 0;
+    let answers = [];
 
     soalUjianAktif.forEach((soal, index) => {
       maxScore += soal.score;
       const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
       let jawaban = -1;
       radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
+      answers.push(jawaban);
       if (jawaban === soal.correctIndex) totalScore += soal.score;
     });
 
@@ -1000,7 +1029,7 @@
     lastPredikatText = predikat;
     lastStatusText = status;
 
-    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status);
+    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, answers);
 
     hasilNama.textContent = nama;
     hasilKelas.textContent = kelas;
@@ -1012,7 +1041,7 @@
     hasilArea.classList.remove("hidden");
   }
 
-  // Download nilai siswa -> CSV: Nama, Kelas, Predikat, Score, Status
+  // Download nilai siswa -> CSV
   const btnDownloadNilai = document.getElementById("btnDownloadNilai");
   btnDownloadNilai.addEventListener("click", () => {
     const rows = [
@@ -1045,11 +1074,66 @@
   const btnMuatNilaiDariDB = document.getElementById("btnMuatNilaiDariDB");
   let dataNilai = [];
 
+  const detailJawabanDiv = document.getElementById("detailJawaban");
+  const detailNamaSpan = document.getElementById("detailNama");
+  const detailKelasSpan = document.getElementById("detailKelas");
+  const detailKodeSpan = document.getElementById("detailKode");
+  const detailTabelBody = document.querySelector("#tabelDetailJawaban tbody");
+
+  function showDetailJawaban(index) {
+    const row = dataNilai[index];
+    if (!row) return;
+    const { code } = getExamSettings();
+
+    if (!row.answers || !Array.isArray(row.answers) || row.answers.length === 0) {
+      alert("Detail jawaban tidak tersedia.\nKemungkinan hasil lama (sebelum fitur ini dipasang) atau data dari CSV.");
+      return;
+    }
+    if (!soalListForDetail || soalListForDetail.length === 0) {
+      alert("Soal ujian belum dimuat.\nPastikan ujian dengan kode ini sudah memiliki soal di database.");
+      return;
+    }
+
+    detailNamaSpan.textContent = row.nama || "";
+    detailKelasSpan.textContent = row.kelas || "";
+    detailKodeSpan.textContent = code || "";
+
+    detailTabelBody.innerHTML = "";
+    row.answers.forEach((ans, i) => {
+      const soal = soalListForDetail[i];
+      if (!soal) return;
+      const qText = soal.text || ("Soal #" + (i + 1));
+      const correctIdx = typeof soal.correctIndex === "number" ? soal.correctIndex : 0;
+      const correctText = soal.choices && soal.choices[correctIdx] ? soal.choices[correctIdx] : "-";
+
+      let chosenText = "-";
+      let statusText = "Tidak dijawab";
+      if (typeof ans === "number" && ans >= 0 && soal.choices && soal.choices[ans]) {
+        chosenText = soal.choices[ans];
+        statusText = (ans === correctIdx) ? "Benar" : "Salah";
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${qText}</td>
+        <td>${chosenText}</td>
+        <td>${correctText}</td>
+        <td>${statusText}</td>
+      `;
+      detailTabelBody.appendChild(tr);
+    });
+
+    detailJawabanDiv.classList.remove("hidden");
+    // Scroll sedikit ke bagian detail
+    detailJawabanDiv.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function applyFilterNilai() {
     const fNama = filterNama.value.trim().toLowerCase();
     const fKelas = filterKelas.value.trim().toLowerCase();
     tabelNilaiBody.innerHTML = "";
-    dataNilai.forEach(row => {
+    dataNilai.forEach((row, idx) => {
       if (fNama && !row.nama.toLowerCase().includes(fNama)) return;
       if (fKelas && !row.kelas.toLowerCase().includes(fKelas)) return;
       const tr = document.createElement("tr");
@@ -1059,8 +1143,16 @@
         <td>${row.predikat}</td>
         <td>${row.score}</td>
         <td>${row.status}</td>
+        <td><button class="btn btn-secondary btn-sm" data-idx="${idx}">Lihat</button></td>
       `;
       tabelNilaiBody.appendChild(tr);
+    });
+
+    tabelNilaiBody.querySelectorAll("button[data-idx]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.dataset.idx, 10);
+        showDetailJawaban(i);
+      });
     });
   }
   filterNama.addEventListener("input", applyFilterNilai);
@@ -1091,7 +1183,7 @@
         const score = cols[3].replace(/(^"|"$)/g, "").trim();
         const status = cols[4].replace(/(^"|"$)/g, "").trim();
         if (!nama) continue;
-        newData.push({ nama, kelas, predikat, score, status });
+        newData.push({ nama, kelas, predikat, score, status, answers: [] });
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
@@ -1143,6 +1235,17 @@
     }
 
     try {
+      // pastikan soal untuk detail juga dimuat
+      try {
+        const examDoc = await db.collection("exams").doc(code).get();
+        if (examDoc.exists) {
+          const exData = examDoc.data();
+          soalListForDetail = normalizeSoalList(exData.soalList || []);
+        }
+      } catch (e) {
+        console.error("Gagal memuat soal untuk detail:", e);
+      }
+
       const snap = await db.collection("results")
         .where("examCode", "==", code)
         .where("ownerUid", "==", user.uid)
@@ -1156,7 +1259,8 @@
           kelas: d.studentClass || "",
           predikat: d.predikat || "",
           score: typeof d.percent === "number" ? d.percent : "",
-          status: d.status || ""
+          status: d.status || "",
+          answers: Array.isArray(d.answers) ? d.answers : []
         });
       });
 
@@ -1190,7 +1294,6 @@
       adminUserInput.value = "";
       adminPassInput.value = "";
 
-      // reset panel setiap kali login guru
       resetGuruPanelForNewUser();
 
       showSectionGuru();
@@ -1215,7 +1318,6 @@
   auth.onAuthStateChanged(user => {
     if (user) {
       adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
-      // jika user berubah (logout -> login user lain), pastikan panel bersih
       resetGuruPanelForNewUser();
     } else {
       adminInfoText.textContent = "Belum login.";
