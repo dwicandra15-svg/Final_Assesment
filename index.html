@@ -310,6 +310,12 @@
           <input type="text" id="examCodeInput" placeholder="1234" />
           <label>Durasi Ujian (menit)</label>
           <input type="number" id="examDurationInput" min="1" value="60" />
+
+          <label style="margin-top:6px;">
+            <input type="checkbox" id="shuffleQuestionsCheckbox" checked />
+            Acak urutan soal
+          </label>
+
           <button class="btn btn-primary mt-2" id="btnSimpanUjian">Simpan Pengaturan (Lokal)</button>
           <button class="btn btn-secondary mt-2" id="btnLoadExamDb">Ambil dari Database</button>
           <button class="btn btn-primary mt-2" id="btnSaveExamDb">Simpan Ujian + Soal ke Database</button>
@@ -519,7 +525,20 @@
     });
   }
   let soalList = normalizeSoalList(defaultSoalList);
-  let soalListForDetail = []; // untuk lihat jawaban siswa
+  let soalListForDetail = []; // untuk lihat jawaban siswa (urutan asli guru)
+
+  // Fungsi untuk acak array (Fisher–Yates)
+  function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Menyimpan urutan soal yang dipakai siswa untuk hasil ujian
+  let currentQuestionOrderForResult = [];
 
   /* ---- State exam untuk simpan hasil ---- */
   let currentExamCodeForResult = null;
@@ -592,16 +611,22 @@
   const btnSaveExamDb = document.getElementById("btnSaveExamDb");
   const examNameViewSiswa = document.getElementById("examNameViewSiswa");
   const examDurationViewSiswa = document.getElementById("examDurationViewSiswa");
+  const shuffleQuestionsCheckbox = document.getElementById("shuffleQuestionsCheckbox");
 
   function loadExamSettingsFromStorage() {
     const name = localStorage.getItem("examName") || "Ujian Contoh";
     const code = localStorage.getItem("examCode") || "1234";
     const duration = localStorage.getItem("examDuration") || "60";
+    const shuffleFlag = localStorage.getItem("shuffleQuestions"); // "true"/"false"/null
+
     examNameInput.value = name;
     examCodeInput.value = code;
     examDurationInput.value = duration;
     examNameViewSiswa.textContent = name;
     examDurationViewSiswa.textContent = duration;
+
+    // default kalau belum pernah diset: true (diacak)
+    shuffleQuestionsCheckbox.checked = (shuffleFlag === null ? true : shuffleFlag === "true");
   }
   function getExamSettings() {
     let name = examNameInput.value.trim() || localStorage.getItem("examName") || "Ujian Contoh";
@@ -611,20 +636,22 @@
       duration = parseInt(localStorage.getItem("examDuration") || "60", 10);
     }
     if (isNaN(duration) || duration <= 0) duration = 60;
-    return { name, code, duration };
+    let shuffleQuestions = shuffleQuestionsCheckbox.checked;
+    return { name, code, duration, shuffleQuestions };
   }
   btnSimpanUjian.addEventListener("click", () => {
-    const { name, code, duration } = getExamSettings();
+    const { name, code, duration, shuffleQuestions } = getExamSettings();
     localStorage.setItem("examName", name);
     localStorage.setItem("examCode", code);
     localStorage.setItem("examDuration", String(duration));
+    localStorage.setItem("shuffleQuestions", String(shuffleQuestions));
     examNameViewSiswa.textContent = name;
     examDurationViewSiswa.textContent = duration;
     alert("Pengaturan ujian disimpan di browser. Klik 'Simpan Ujian + Soal ke Database' untuk mengirim ke Firestore.");
   });
 
   btnSaveExamDb.addEventListener("click", async () => {
-    const { name, code, duration } = getExamSettings();
+    const { name, code, duration, shuffleQuestions } = getExamSettings();
     if (!name || !code) {
       alert("Nama ujian dan kode ujian wajib diisi.");
       return;
@@ -638,6 +665,7 @@
       name,
       code,
       duration,
+      shuffleQuestions,          // disimpan di Firestore
       soalList,
       ownerUid: user.uid,
       ownerEmail: user.email || ""
@@ -671,6 +699,13 @@
       soalList = normalizeSoalList(data.soalList || []);
       soalListForDetail = soalList.slice();
       renderTabelSoal();
+
+      if (typeof data.shuffleQuestions === "boolean") {
+        shuffleQuestionsCheckbox.checked = data.shuffleQuestions;
+      } else {
+        shuffleQuestionsCheckbox.checked = true;
+      }
+
       alert("Ujian & bank soal berhasil dimuat dari Firestore.");
     } catch (e) {
       console.error(e);
@@ -778,6 +813,7 @@
     examNameViewSiswa.textContent = "Belum diatur";
     examDurationViewSiswa.textContent = "0";
     soalListForDetail = [];
+    currentQuestionOrderForResult = [];
   }
 
   function editSoal(index) {
@@ -948,8 +984,23 @@
       currentExamCodeForResult = kode;
       currentExamOwnerUid = data.ownerUid || null;
       currentExamName = data.name || "";
-      soalUjianAktif = normalizeSoalList(data.soalList || []);
-      soalListForDetail = soalUjianAktif.slice();
+
+      const baseSoal = normalizeSoalList(data.soalList || []);
+
+      // baca pengaturan acak soal dari Firestore, default = true
+      const shuffleQuestions =
+        (typeof data.shuffleQuestions === "boolean") ? data.shuffleQuestions : true;
+
+      if (shuffleQuestions) {
+        const order = shuffleArray(baseSoal.map((_, idx) => idx));
+        currentQuestionOrderForResult = order;
+        soalUjianAktif = order.map(i => baseSoal[i]);
+      } else {
+        currentQuestionOrderForResult = baseSoal.map((_, idx) => idx);
+        soalUjianAktif = baseSoal.slice();
+      }
+
+      soalListForDetail = baseSoal.slice(); // untuk detail jawaban
 
       if (soalUjianAktif.length === 0) {
         alert("Belum ada soal pada ujian ini.");
@@ -973,9 +1024,9 @@
     selesaiUjian();
   });
 
-  // simpan hasil ke Firestore (sekarang menyimpan answers)
+  // simpan hasil ke Firestore (dengan answers + questionOrder)
   async function simpanHasilKeFirestore(
-    nama, kelas, persen, totalScore, maxScore, predikat, status, answers
+    nama, kelas, persen, totalScore, maxScore, predikat, status, answers, questionOrder
   ) {
     try {
       if (!currentExamCodeForResult) return;
@@ -991,6 +1042,7 @@
         predikat: predikat,
         status: status,
         answers: answers || [],
+        questionOrder: questionOrder || [],
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (err) {
@@ -1029,7 +1081,11 @@
     lastPredikatText = predikat;
     lastStatusText = status;
 
-    simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, answers);
+    simpanHasilKeFirestore(
+      nama, kelas, persen, totalScore, maxScore, predikat, status,
+      answers,
+      currentQuestionOrderForResult
+    );
 
     hasilNama.textContent = nama;
     hasilKelas.textContent = kelas;
@@ -1086,7 +1142,7 @@
     const { code } = getExamSettings();
 
     if (!row.answers || !Array.isArray(row.answers) || row.answers.length === 0) {
-      alert("Detail jawaban tidak tersedia.\nKemungkinan hasil lama (sebelum fitur ini dipasang) atau data dari CSV.");
+      alert("Detail jawaban tidak tersedia.\nKemungkinan hasil lama (sebelum fitur ini) atau data dari CSV.");
       return;
     }
     if (!soalListForDetail || soalListForDetail.length === 0) {
@@ -1099,10 +1155,17 @@
     detailKodeSpan.textContent = code || "";
 
     detailTabelBody.innerHTML = "";
+
+    const order = (Array.isArray(row.questionOrder) && row.questionOrder.length === row.answers.length)
+      ? row.questionOrder
+      : row.answers.map((_, idx) => idx);
+
     row.answers.forEach((ans, i) => {
-      const soal = soalListForDetail[i];
+      const originalIndex = order[i] ?? i;
+      const soal = soalListForDetail[originalIndex];
       if (!soal) return;
-      const qText = soal.text || ("Soal #" + (i + 1));
+
+      const qText = soal.text || ("Soal #" + (originalIndex + 1));
       const correctIdx = typeof soal.correctIndex === "number" ? soal.correctIndex : 0;
       const correctText = soal.choices && soal.choices[correctIdx] ? soal.choices[correctIdx] : "-";
 
@@ -1125,7 +1188,6 @@
     });
 
     detailJawabanDiv.classList.remove("hidden");
-    // Scroll sedikit ke bagian detail
     detailJawabanDiv.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -1183,7 +1245,7 @@
         const score = cols[3].replace(/(^"|"$)/g, "").trim();
         const status = cols[4].replace(/(^"|"$)/g, "").trim();
         if (!nama) continue;
-        newData.push({ nama, kelas, predikat, score, status, answers: [] });
+        newData.push({ nama, kelas, predikat, score, status, answers: [], questionOrder: null });
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
@@ -1235,7 +1297,7 @@
     }
 
     try {
-      // pastikan soal untuk detail juga dimuat
+      // muat soal untuk detail juga
       try {
         const examDoc = await db.collection("exams").doc(code).get();
         if (examDoc.exists) {
@@ -1260,7 +1322,8 @@
           predikat: d.predikat || "",
           score: typeof d.percent === "number" ? d.percent : "",
           status: d.status || "",
-          answers: Array.isArray(d.answers) ? d.answers : []
+          answers: Array.isArray(d.answers) ? d.answers : [],
+          questionOrder: Array.isArray(d.questionOrder) ? d.questionOrder : null
         });
       });
 
@@ -1295,10 +1358,10 @@
       adminPassInput.value = "";
 
       resetGuruPanelForNewUser();
-
-      showSectionGuru();
+      loadExamSettingsFromStorage();
       loadHeaderSubtitleFromStorage();
       loadKopFromStorage();
+      showSectionGuru();
     } catch (err) {
       console.error(err);
       let msg = "Login gagal. ";
@@ -1319,6 +1382,9 @@
     if (user) {
       adminInfoText.textContent = "Login sebagai: " + (user.email || "(tanpa email)");
       resetGuruPanelForNewUser();
+      loadExamSettingsFromStorage();
+      loadHeaderSubtitleFromStorage();
+      loadKopFromStorage();
     } else {
       adminInfoText.textContent = "Belum login.";
     }
