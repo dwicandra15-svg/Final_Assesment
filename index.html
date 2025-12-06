@@ -188,21 +188,6 @@
       font-style: italic;
     }
 
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 8px;
-      font-size: 13px;
-    }
-    .summary-item {
-      background: #e5e7eb;
-      border-radius: 6px;
-      padding: 6px 8px;
-      text-align: center;
-    }
-    .summary-item b { display: block; font-size: 16px; }
-
     @media print {
       body * { visibility: hidden; }
       #daftarNilaiArea, #daftarNilaiArea * { visibility: visible; }
@@ -245,7 +230,8 @@
       </p>
       <div class="info-box">
         Isikan nama, kelas, dan kode ujian dari guru, lalu klik
-        <b>Mulai Ujian</b>.
+        <b>Mulai Ujian</b>. Jika nama yang sama sudah pernah mengerjakan
+        ujian dengan kode tersebut, tidak akan bisa mengulang.
       </div>
       <label>Nama Siswa</label>
       <input type="text" id="siswaNama" />
@@ -310,7 +296,8 @@
         <button class="btn btn-secondary btn-sm" id="btnLogoutGuru">Logout</button>
       </div>
       <div class="info-box">
-        Ujian dan bank soal disimpan di Firestore per kode ujian. Guru lain tidak dapat menimpa ujian guru ini.
+        Ujian dan bank soal disimpan di Firestore per kode ujian & per akun guru.
+        Guru lain tidak dapat menimpa ujian guru ini.
       </div>
     </div>
 
@@ -327,11 +314,11 @@
           <input type="number" id="examDurationInput" min="1" value="60" />
 
           <label class="mt-2">
-            <input type="checkbox" id="shuffleQuestionsInput" checked />
+            <input type="checkbox" id="shuffleQuestionsCheckbox" />
             Acak urutan soal
           </label>
           <label>
-            <input type="checkbox" id="shuffleChoicesInput" />
+            <input type="checkbox" id="shuffleChoicesCheckbox" />
             Acak urutan pilihan jawaban
           </label>
 
@@ -461,49 +448,50 @@
         <button class="btn btn-primary" id="btnMuatNilaiDariDB">Muat Nilai dari Database</button>
       </div>
 
+      <!-- Ringkasan hasil ujian -->
       <div class="mt-3">
-        <h4>Ringkasan Hasil Ujian</h4>
-        <div class="summary-grid">
-          <div class="summary-item">
-            Total Peserta
-            <b id="statTotal">0</b>
+        <h3>Ringkasan Hasil Ujian</h3>
+        <div class="flex">
+          <div class="flex-1 card">
+            <div style="font-size:13px;">Total Peserta</div>
+            <div id="ringkasanTotalPeserta" style="font-size:24px;font-weight:bold;">0</div>
           </div>
-          <div class="summary-item">
-            Rata-rata Nilai
-            <b id="statRerata">0</b>
+          <div class="flex-1 card">
+            <div style="font-size:13px;">Rata-rata Nilai</div>
+            <div id="ringkasanRataRata" style="font-size:24px;font-weight:bold;">0</div>
           </div>
-          <div class="summary-item">
-            Tuntas
-            <b id="statTuntas">0</b>
+          <div class="flex-1 card">
+            <div style="font-size:13px;">Tuntas</div>
+            <div id="ringkasanTuntas" style="font-size:24px;font-weight:bold;">0</div>
           </div>
-          <div class="summary-item">
-            Remidi
-            <b id="statRemidi">0</b>
+          <div class="flex-1 card">
+            <div style="font-size:13px;">Remidi</div>
+            <div id="ringkasanRemidi" style="font-size:24px;font-weight:bold;">0</div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Analisis Butir Soal -->
-    <div class="card mt-3">
-      <h3>Analisis Butir Soal</h3>
-      <p style="font-size:13px;">
-        Analisis berdasarkan hasil yang tersimpan di Firestore untuk kode ujian &amp; guru ini.
-      </p>
-      <button class="btn btn-primary" id="btnHitungAnalisis">Hitung Analisis Butir Soal</button>
-      <table id="tabelAnalisis" class="mt-2">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Soal</th>
-            <th>Jumlah Peserta</th>
-            <th>Benar</th>
-            <th>Salah</th>
-            <th>% Benar</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <!-- Analisis butir soal -->
+      <div class="mt-3">
+        <h3>Analisis Butir Soal</h3>
+        <p style="font-size:13px;">
+          Analisis berdasarkan hasil yang tersimpan di Firestore untuk kode ujian & guru ini.
+        </p>
+        <button class="btn btn-primary" id="btnHitungAnalisis">Hitung Analisis Butir Soal</button>
+        <table class="mt-2">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Soal</th>
+              <th>Jumlah Peserta</th>
+              <th>Benar</th>
+              <th>Salah</th>
+              <th>% Benar</th>
+            </tr>
+          </thead>
+          <tbody id="tabelAnalisisBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -537,7 +525,14 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  /* ---- Soal default ---- */
+  // ---------- Util ----------
+  function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
   const defaultSoalList = [
     {
       text: "How are you today?",
@@ -559,29 +554,27 @@
       let score = !isNaN(s) && s > 0 ? s : 1;
       return {
         text: item.text || "",
-        choices: Array.isArray(item.choices) ? item.choices.slice(0, 4) : ["", "", "", ""],
+        choices: Array.isArray(item.choices) ? item.choices : ["", "", "", ""],
         correctIndex: typeof item.correctIndex === "number" ? item.correctIndex : 0,
         score
       };
     });
   }
+
   let soalList = normalizeSoalList(defaultSoalList);
 
-  /* ---- State exam untuk simpan hasil & analisis ---- */
+  // State ujian untuk simpan hasil
   let currentExamCodeForResult = null;
   let currentExamOwnerUid = null;
   let currentExamName = null;
-  let jumlahSoalAsli = 0; // jumlah soal asli di exam
+  let currentResultDocId = null;
 
-  /* ---- helpers ---- */
-  function shuffleArray(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  }
+  // Untuk randomisasi di mode siswa
+  let soalOrder = [];
+  let shuffleQuestionsFlag = false;
+  let shuffleChoicesFlag = false;
 
-  /* ---- Mode & section ---- */
+  // ---------- Mode & section ----------
   const btnModeSiswa = document.getElementById("btnModeSiswa");
   const btnModeGuru = document.getElementById("btnModeGuru");
   const btnModeRekap = document.getElementById("btnModeRekap");
@@ -630,7 +623,7 @@
   btnModeGuru.addEventListener("click", showSectionGuru);
   btnModeRekap.addEventListener("click", showSectionRekap);
 
-  /* ---- Login guru ---- */
+  // ---------- Login guru ----------
   const btnLoginGuru = document.getElementById("btnLoginGuru");
   const loginError = document.getElementById("loginError");
   const btnLogoutGuru = document.getElementById("btnLogoutGuru");
@@ -680,13 +673,12 @@
     }
   });
 
-  /* ---- Pengaturan ujian ---- */
+  // ---------- Pengaturan ujian ----------
   const examNameInput = document.getElementById("examNameInput");
   const examCodeInput = document.getElementById("examCodeInput");
   const examDurationInput = document.getElementById("examDurationInput");
-  const shuffleQuestionsInput = document.getElementById("shuffleQuestionsInput");
-  const shuffleChoicesInput = document.getElementById("shuffleChoicesInput");
-
+  const shuffleQuestionsCheckbox = document.getElementById("shuffleQuestionsCheckbox");
+  const shuffleChoicesCheckbox = document.getElementById("shuffleChoicesCheckbox");
   const btnSimpanUjian = document.getElementById("btnSimpanUjian");
   const btnLoadExamDb = document.getElementById("btnLoadExamDb");
   const btnSaveExamDb = document.getElementById("btnSaveExamDb");
@@ -697,17 +689,15 @@
     const name = localStorage.getItem("examName") || "Ujian Contoh";
     const code = localStorage.getItem("examCode") || "1234";
     const duration = localStorage.getItem("examDuration") || "60";
-    const shuffleQ = localStorage.getItem("shuffleQuestions") === "1";
-    const shuffleC = localStorage.getItem("shuffleChoices") === "1";
-
+    const sq = localStorage.getItem("shuffleQuestions") === "true";
+    const sc = localStorage.getItem("shuffleChoices") === "true";
     examNameInput.value = name;
     examCodeInput.value = code;
     examDurationInput.value = duration;
-    shuffleQuestionsInput.checked = shuffleQ;
-    shuffleChoicesInput.checked = shuffleC;
-
     examNameViewSiswa.textContent = name;
     examDurationViewSiswa.textContent = duration;
+    shuffleQuestionsCheckbox.checked = sq;
+    shuffleChoicesCheckbox.checked = sc;
   }
   function getExamSettings() {
     let name = examNameInput.value.trim() || localStorage.getItem("examName") || "Ujian Contoh";
@@ -717,26 +707,24 @@
       duration = parseInt(localStorage.getItem("examDuration") || "60", 10);
     }
     if (isNaN(duration) || duration <= 0) duration = 60;
-
-    const shuffleQ = shuffleQuestionsInput.checked;
-    const shuffleC = shuffleChoicesInput.checked;
-
-    return { name, code, duration, shuffleQ, shuffleC };
+    const sq = shuffleQuestionsCheckbox.checked;
+    const sc = shuffleChoicesCheckbox.checked;
+    return { name, code, duration, sq, sc };
   }
   btnSimpanUjian.addEventListener("click", () => {
-    const { name, code, duration, shuffleQ, shuffleC } = getExamSettings();
+    const { name, code, duration, sq, sc } = getExamSettings();
     localStorage.setItem("examName", name);
     localStorage.setItem("examCode", code);
     localStorage.setItem("examDuration", String(duration));
-    localStorage.setItem("shuffleQuestions", shuffleQ ? "1" : "0");
-    localStorage.setItem("shuffleChoices", shuffleC ? "1" : "0");
+    localStorage.setItem("shuffleQuestions", String(sq));
+    localStorage.setItem("shuffleChoices", String(sc));
     examNameViewSiswa.textContent = name;
     examDurationViewSiswa.textContent = duration;
     alert("Pengaturan ujian disimpan di browser. Klik 'Simpan Ujian + Soal ke Database' untuk mengirim ke Firestore.");
   });
 
   btnSaveExamDb.addEventListener("click", async () => {
-    const { name, code, duration, shuffleQ, shuffleC } = getExamSettings();
+    const { name, code, duration, sq, sc } = getExamSettings();
     if (!name || !code) {
       alert("Nama ujian dan kode ujian wajib diisi.");
       return;
@@ -753,8 +741,8 @@
       soalList,
       ownerUid: user.uid,
       ownerEmail: user.email || "",
-      shuffleQuestions: shuffleQ,
-      shuffleChoices: shuffleC
+      shuffleQuestions: sq,
+      shuffleChoices: sc
     };
     try {
       await db.collection("exams").doc(code).set(data);
@@ -782,13 +770,11 @@
       examDurationInput.value = data.duration || 60;
       examNameViewSiswa.textContent = data.name || "";
       examDurationViewSiswa.textContent = data.duration || 0;
-
-      shuffleQuestionsInput.checked = !!data.shuffleQuestions;
-      shuffleChoicesInput.checked = !!data.shuffleChoices;
-      localStorage.setItem("shuffleQuestions", data.shuffleQuestions ? "1" : "0");
-      localStorage.setItem("shuffleChoices", data.shuffleChoices ? "1" : "0");
-
       soalList = normalizeSoalList(data.soalList || []);
+      shuffleQuestionsCheckbox.checked = !!data.shuffleQuestions;
+      shuffleChoicesCheckbox.checked = !!data.shuffleChoices;
+      localStorage.setItem("shuffleQuestions", String(!!data.shuffleQuestions));
+      localStorage.setItem("shuffleChoices", String(!!data.shuffleChoices));
       renderTabelSoal();
       alert("Ujian & bank soal berhasil dimuat dari Firestore.");
     } catch (e) {
@@ -797,7 +783,7 @@
     }
   });
 
-  /* ---- Header & kop ---- */
+  // ---------- Header & kop ----------
   const headerSubtitleInput = document.getElementById("headerSubtitleInput");
   const btnSimpanHeader = document.getElementById("btnSimpanHeader");
   btnSimpanHeader.addEventListener("click", () => {
@@ -836,7 +822,7 @@
     kopSubtitleView.textContent = s;
   }
 
-  /* ---- Kelola soal guru ---- */
+  // ---------- Kelola soal guru ----------
   const soalText = document.getElementById("soalText");
   const pilihan1 = document.getElementById("pilihan1");
   const pilihan2 = document.getElementById("pilihan2");
@@ -957,7 +943,7 @@
     reader.readAsText(file);
   });
 
-  /* ---- Mode siswa: ujian ---- */
+  // ---------- Mode siswa: ujian ----------
   const siswaNamaInput = document.getElementById("siswaNama");
   const siswaKelasInput = document.getElementById("siswaKelas");
   const siswaExamCodeInput = document.getElementById("siswaExamCode");
@@ -975,7 +961,6 @@
   const timerText = document.getElementById("timerText");
   const peringatanFocus = document.getElementById("peringatanFocus");
 
-  let soalUjianAktif = [];
   let timerInterval = null;
   let sisaDetik = 0;
   let lastPercent = 0;
@@ -1002,25 +987,36 @@
     timerText.textContent = `${m}:${s}`;
   }
 
+  function buildSoalOrder(jumlah) {
+    soalOrder = [];
+    for (let i = 0; i < jumlah; i++) soalOrder.push(i);
+    if (shuffleQuestionsFlag) shuffleInPlace(soalOrder);
+  }
+
   function renderSoalUntukSiswa() {
     soalContainer.innerHTML = "";
-    soalUjianAktif.forEach((soal, index) => {
+    soalOrder.forEach((qIndex, displayIndex) => {
+      const soal = soalList[qIndex];
       const card = document.createElement("div");
       card.className = "question-card";
       const judul = document.createElement("h4");
-      judul.textContent = `Soal ${index + 1}. ${soal.text}`;
+      judul.textContent = `Soal ${displayIndex + 1}. ${soal.text}`;
       card.appendChild(judul);
       const choicesDiv = document.createElement("div");
       choicesDiv.className = "choices";
-      soal.choices.forEach((pilihan, idx) => {
+
+      let choiceOrder = [0,1,2,3];
+      if (shuffleChoicesFlag) shuffleInPlace(choiceOrder);
+
+      choiceOrder.forEach(origIdx => {
         const chDiv = document.createElement("div");
         chDiv.className = "choice";
         const input = document.createElement("input");
         input.type = "radio";
-        input.name = "soal_" + index;
-        input.value = idx;
+        input.name = "soal_" + qIndex;      // penting: nama berdasarkan index asli
+        input.value = origIdx;              // value = index asli pilihan
         const label = document.createElement("label");
-        label.textContent = pilihan;
+        label.textContent = soal.choices[origIdx];
         chDiv.appendChild(input);
         chDiv.appendChild(label);
         choicesDiv.appendChild(chDiv);
@@ -1038,7 +1034,19 @@
       alert("Nama, kelas, dan kode ujian wajib diisi.");
       return;
     }
+
+    const namaKey = nama.toLowerCase().trim();
+    const resultDocId = `${kode}_${namaKey}`;
+
     try {
+      // Cek apakah siswa sudah pernah mengerjakan
+      const existingSnap = await db.collection("results").doc(resultDocId).get();
+      if (existingSnap.exists) {
+        alert("Anda sudah pernah mengerjakan ujian ini dengan nama yang sama.\nSilakan hubungi guru jika butuh pengulangan.");
+        return;
+      }
+
+      // Ambil ujian
       const docSnap = await db.collection("exams").doc(kode).get();
       if (!docSnap.exists) {
         alert("Kode ujian tidak ditemukan di database.");
@@ -1048,43 +1056,16 @@
       examNameViewSiswa.textContent = data.name || "Ujian";
       examDurationViewSiswa.textContent = data.duration || 0;
 
-      // simpan info untuk hasil
       currentExamCodeForResult = kode;
       currentExamOwnerUid = data.ownerUid || null;
       currentExamName = data.name || "";
+      currentResultDocId = resultDocId;
 
-      // siapkan soal + pengacakan
-      const rawSoal = normalizeSoalList(data.soalList || []);
-      jumlahSoalAsli = rawSoal.length;
-      soalUjianAktif = rawSoal.map((s, idx) => ({
-        text: s.text,
-        choices: s.choices.slice(),
-        correctIndex: s.correctIndex,
-        score: s.score,
-        qId: idx
-      }));
+      soalList = normalizeSoalList(data.soalList || []);
+      shuffleQuestionsFlag = !!data.shuffleQuestions;
+      shuffleChoicesFlag = !!data.shuffleChoices;
 
-      const shuffleQ = !!data.shuffleQuestions;
-      const shuffleC = !!data.shuffleChoices;
-
-      if (shuffleQ) {
-        shuffleArray(soalUjianAktif);
-      }
-      if (shuffleC) {
-        soalUjianAktif.forEach(q => {
-          const idxs = [0,1,2,3];
-          shuffleArray(idxs);
-          const newChoices = idxs.map(i => q.choices[i]);
-          const newCorrectIndex = idxs.indexOf(q.correctIndex);
-          q.choices = newChoices;
-          q.correctIndex = newCorrectIndex;
-        });
-      }
-
-      if (soalUjianAktif.length === 0) {
-        alert("Belum ada soal pada ujian ini.");
-        return;
-      }
+      buildSoalOrder(soalList.length);
       ujianArea.classList.remove("hidden");
       hasilArea.classList.add("hidden");
       renderSoalUntukSiswa();
@@ -1103,11 +1084,11 @@
     selesaiUjian();
   });
 
-  // simpan hasil ke Firestore (termasuk jawaban benar/salah per soal)
   async function simpanHasilKeFirestore(nama, kelas, persen, totalScore, maxScore, predikat, status, answersCorrect) {
     try {
-      if (!currentExamCodeForResult) return;
-      await db.collection("results").add({
+      if (!currentExamCodeForResult || !currentResultDocId) return;
+      const docRef = db.collection("results").doc(currentResultDocId);
+      await docRef.set({
         examCode: currentExamCodeForResult,
         examName: currentExamName || "",
         ownerUid: currentExamOwnerUid || null,
@@ -1118,7 +1099,7 @@
         maxScore: maxScore,
         predikat: predikat,
         status: status,
-        answers: answersCorrect || [],
+        answersCorrect: (answersCorrect || []).map(v => !!v),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (err) {
@@ -1135,21 +1116,18 @@
     const kelas = siswaKelasInput.value.trim();
     let totalScore = 0;
     let maxScore = 0;
+    const answersCorrect = [];
 
-    const answersCorrect = new Array(jumlahSoalAsli || soalUjianAktif.length).fill(false);
-
-    soalUjianAktif.forEach((soal, index) => {
+    for (let qIndex = 0; qIndex < soalList.length; qIndex++) {
+      const soal = soalList[qIndex];
       maxScore += soal.score;
-      const radios = document.querySelectorAll(`input[name="soal_${index}"]`);
+      const radios = document.querySelectorAll(`input[name="soal_${qIndex}"]`);
       let jawaban = -1;
       radios.forEach(r => { if (r.checked) jawaban = parseInt(r.value, 10); });
-      if (jawaban === soal.correctIndex) {
-        totalScore += soal.score;
-        if (typeof soal.qId === "number" && soal.qId >= 0 && soal.qId < answersCorrect.length) {
-          answersCorrect[soal.qId] = true;
-        }
-      }
-    });
+      const benar = (jawaban === soal.correctIndex);
+      if (benar) totalScore += soal.score;
+      answersCorrect[qIndex] = benar;
+    }
 
     const persen = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
     let predikat = "Buruk";
@@ -1196,7 +1174,7 @@
     a.click();
   });
 
-  /* ---- Rekap nilai ---- */
+  // ---------- Rekap nilai ----------
   const fileNilai = document.getElementById("fileNilai");
   const btnTampilkanDaftarSiswa = document.getElementById("btnTampilkanDaftarSiswa");
   const tabelNilaiBody = document.querySelector("#tabelNilai tbody");
@@ -1205,29 +1183,17 @@
   const btnDownloadDaftarNilaiCSV = document.getElementById("btnDownloadDaftarNilaiCSV");
   const btnPrintDaftarNilaiPDF = document.getElementById("btnPrintDaftarNilaiPDF");
   const btnMuatNilaiDariDB = document.getElementById("btnMuatNilaiDariDB");
+
+  const ringkasanTotalPeserta = document.getElementById("ringkasanTotalPeserta");
+  const ringkasanRataRata = document.getElementById("ringkasanRataRata");
+  const ringkasanTuntas = document.getElementById("ringkasanTuntas");
+  const ringkasanRemidi = document.getElementById("ringkasanRemidi");
+
+  const tabelAnalisisBody = document.getElementById("tabelAnalisisBody");
+  const btnHitungAnalisis = document.getElementById("btnHitungAnalisis");
+
   let dataNilai = [];
-
-  const statTotal = document.getElementById("statTotal");
-  const statRerata = document.getElementById("statRerata");
-  const statTuntas = document.getElementById("statTuntas");
-  const statRemidi = document.getElementById("statRemidi");
-
-  function updateRingkasanHasil() {
-    const total = dataNilai.length;
-    let sum = 0;
-    let tuntas = 0;
-    let remidi = 0;
-    dataNilai.forEach(r => {
-      const v = parseFloat(r.score) || 0;
-      sum += v;
-      if ((r.status || "").toLowerCase() === "tuntas") tuntas++;
-      else remidi++;
-    });
-    statTotal.textContent = total;
-    statRerata.textContent = total ? (sum / total).toFixed(1) : "0";
-    statTuntas.textContent = tuntas;
-    statRemidi.textContent = remidi;
-  }
+  let hasilUntukAnalisis = [];
 
   function applyFilterNilai() {
     const fNama = filterNama.value.trim().toLowerCase();
@@ -1243,27 +1209,30 @@
         <td>${row.predikat}</td>
         <td>${row.score}</td>
         <td>${row.status}</td>
-        <td><button class="btn btn-danger btn-sm" data-idx="${idx}">Hapus</button></td>
+        <td><button class="btn btn-danger btn-sm" data-row="${idx}">Hapus</button></td>
       `;
       tabelNilaiBody.appendChild(tr);
     });
-    tabelNilaiBody.querySelectorAll("button[data-idx]").forEach(btn => {
-      const idx = parseInt(btn.dataset.idx, 10);
+
+    // tombol hapus
+    tabelNilaiBody.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const item = dataNilai[idx];
-        if (!confirm(`Hapus nilai siswa "${item.nama}"?`)) return;
-        // kalau ada docId, hapus di Firestore
-        if (item.docId) {
+        const idx = parseInt(btn.dataset.row, 10);
+        const row = dataNilai[idx];
+        if (!confirm(`Hapus nilai siswa "${row.nama}"?`)) return;
+
+        // jika punya docId -> hapus di Firestore
+        if (row.docId) {
           try {
-            await db.collection("results").doc(item.docId).delete();
-          } catch (err) {
-            console.error("Gagal hapus di Firestore:", err);
-            alert("Gagal menghapus di database, cek console.");
+            await db.collection("results").doc(row.docId).delete();
+          } catch (e) {
+            console.error("Gagal menghapus dari Firestore:", e);
           }
         }
         dataNilai.splice(idx, 1);
         applyFilterNilai();
-        updateRingkasanHasil();
+        updateRingkasan(hasilUntukAnalisis); // refresh ringkasan
+        updateAnalisisButir();
       });
     });
   }
@@ -1295,11 +1264,10 @@
         const score = cols[3].replace(/(^"|"$)/g, "").trim();
         const status = cols[4].replace(/(^"|"$)/g, "").trim();
         if (!nama) continue;
-        newData.push({ nama, kelas, predikat, score, status, docId: null });
+        newData.push({ nama, kelas, predikat, score, status, docId: null, answersCorrect: null, percent: null });
       }
       dataNilai = dataNilai.concat(newData);
       applyFilterNilai();
-      updateRingkasanHasil();
       alert("Data nilai siswa dari CSV berhasil ditambahkan.");
     };
     reader.readAsText(file);
@@ -1348,12 +1316,22 @@
     }
 
     try {
+      // pastikan soalList sesuai dari exam
+      const examSnap = await db.collection("exams").doc(code).get();
+      if (examSnap.exists) {
+        soalList = normalizeSoalList(examSnap.data().soalList || []);
+        shuffleQuestionsCheckbox.checked = !!examSnap.data().shuffleQuestions;
+        shuffleChoicesCheckbox.checked = !!examSnap.data().shuffleChoices;
+        renderTabelSoal();
+      }
+
       const snap = await db.collection("results")
         .where("examCode", "==", code)
         .where("ownerUid", "==", user.uid)
         .get();
 
       const newData = [];
+      const hasilRaw = [];
       snap.forEach(doc => {
         const d = doc.data();
         newData.push({
@@ -1362,13 +1340,21 @@
           predikat: d.predikat || "",
           score: typeof d.percent === "number" ? d.percent : "",
           status: d.status || "",
-          docId: doc.id
+          docId: doc.id,
+          answersCorrect: d.answersCorrect || [],
+          percent: typeof d.percent === "number" ? d.percent : 0
+        });
+        hasilRaw.push({
+          answersCorrect: d.answersCorrect || [],
+          percent: typeof d.percent === "number" ? d.percent : 0
         });
       });
 
       dataNilai = newData;
+      hasilUntukAnalisis = hasilRaw;
       applyFilterNilai();
-      updateRingkasanHasil();
+      updateRingkasan(hasilUntukAnalisis);
+      updateAnalisisButir();
 
       if (newData.length === 0) {
         alert("Belum ada hasil siswa di database untuk kode ujian ini.");
@@ -1381,80 +1367,70 @@
     }
   });
 
-  /* ---- Analisis Butir Soal ---- */
-  const btnHitungAnalisis = document.getElementById("btnHitungAnalisis");
-  const tabelAnalisisBody = document.querySelector("#tabelAnalisis tbody");
+  function updateRingkasan(hasil) {
+    const total = hasil.length;
+    ringkasanTotalPeserta.textContent = total;
 
-  btnHitungAnalisis.addEventListener("click", async () => {
-    const { code } = getExamSettings();
-    const user = auth.currentUser;
-    if (!code) {
-      alert("Isi kode ujian di Pengaturan Ujian terlebih dahulu.");
+    if (total === 0) {
+      ringkasanRataRata.textContent = "0";
+      ringkasanTuntas.textContent = "0";
+      ringkasanRemidi.textContent = "0";
       return;
     }
-    if (!user) {
-      alert("Guru belum login.");
+    let sum = 0;
+    let tuntas = 0;
+    hasil.forEach(h => {
+      sum += h.percent;
+      if (h.percent >= 70) tuntas++;
+    });
+    const rata = sum / total;
+    ringkasanRataRata.textContent = rata.toFixed(1);
+    ringkasanTuntas.textContent = String(tuntas);
+    ringkasanRemidi.textContent = String(total - tuntas);
+  }
+
+  function updateAnalisisButir() {
+    tabelAnalisisBody.innerHTML = "";
+    const nSoal = soalList.length;
+    if (nSoal === 0 || hasilUntukAnalisis.length === 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="6">Belum ada data untuk analisis.</td>`;
+      tabelAnalisisBody.appendChild(tr);
       return;
     }
-    try {
-      // ambil exam utk teks soal
-      const examSnap = await db.collection("exams").doc(code).get();
-      if (!examSnap.exists) {
-        alert("Ujian tidak ditemukan di database.");
-        return;
-      }
-      const examData = examSnap.data();
-      const soal = normalizeSoalList(examData.soalList || []);
-      const jumlahSoal = soal.length;
 
-      // ambil hasil
-      const resSnap = await db.collection("results")
-        .where("examCode", "==", code)
-        .where("ownerUid", "==", user.uid)
-        .get();
-
-      const benarCount = new Array(jumlahSoal).fill(0);
-      const totalCount = new Array(jumlahSoal).fill(0);
-
-      resSnap.forEach(doc => {
-        const d = doc.data();
-        const ans = Array.isArray(d.answers) ? d.answers : [];
-        for (let i = 0; i < jumlahSoal; i++) {
-          if (typeof ans[i] === "boolean") {
-            totalCount[i]++;
-            if (ans[i]) benarCount[i]++;
-          }
-        }
+    for (let i = 0; i < nSoal; i++) {
+      let total = 0;
+      let benar = 0;
+      hasilUntukAnalisis.forEach(h => {
+        const arr = h.answersCorrect || [];
+        if (arr.length <= i) return;
+        total++;
+        if (arr[i]) benar++;
       });
+      const salah = total - benar;
+      const persen = total > 0 ? Math.round((benar / total) * 100) : 0;
 
-      tabelAnalisisBody.innerHTML = "";
-      for (let i = 0; i < jumlahSoal; i++) {
-        const total = totalCount[i];
-        const benar = benarCount[i];
-        const salah = total - benar;
-        const persen = total > 0 ? Math.round((benar / total) * 100) : 0;
-        const teksPendek = soal[i].text.length > 80
-          ? soal[i].text.slice(0, 77) + "..."
-          : soal[i].text;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${i + 1}</td>
-          <td>${teksPendek}</td>
-          <td>${total}</td>
-          <td>${benar}</td>
-          <td>${salah}</td>
-          <td>${persen}%</td>
-        `;
-        tabelAnalisisBody.appendChild(tr);
-      }
-      alert("Analisis butir soal berhasil dihitung.");
-    } catch (err) {
-      console.error("Gagal analisis butir soal:", err);
-      alert("Gagal menghitung analisis butir soal.");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${soalList[i].text}</td>
+        <td>${total}</td>
+        <td>${benar}</td>
+        <td>${salah}</td>
+        <td>${persen}%</td>
+      `;
+      tabelAnalisisBody.appendChild(tr);
     }
+  }
+
+  btnHitungAnalisis.addEventListener("click", () => {
+    updateRingkasan(hasilUntukAnalisis);
+    updateAnalisisButir();
+    alert("Analisis butir soal telah dihitung ulang.");
   });
 
-  /* ---- Init ---- */
+  // ---------- Init ----------
   window.addEventListener("load", () => {
     loadExamSettingsFromStorage();
     loadHeaderSubtitleFromStorage();
